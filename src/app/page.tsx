@@ -1,16 +1,36 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import ReportHistory from '@/components/ReportHistory'
 import ReportDisplay from '@/components/ReportDisplay'
+import { createClient } from '@/lib/supabase-browser'
 
 export default function Home() {
+  const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [content, setContent] = useState<string>('')
   const [streaming, setStreaming] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [historyKey, setHistoryKey] = useState(0)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  const ADMIN_EMAIL = 'chirans@gmail.com'
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null)
+    })
+  }, [])
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   const loadReport = useCallback(async (id: string, date: string) => {
     setSelectedId(id)
@@ -98,6 +118,23 @@ export default function Home() {
             selectedId={selectedId}
             onSelect={loadReport}
           />
+        </div>
+
+        <div className="border-t border-gray-800 p-3 space-y-1">
+          {userEmail === ADMIN_EMAIL && (
+            <button
+              onClick={() => router.push('/admin')}
+              className="w-full text-left text-xs text-gray-400 hover:text-white px-2 py-1.5 rounded transition-colors"
+            >
+              User Management
+            </button>
+          )}
+          <button
+            onClick={handleLogout}
+            className="w-full text-left text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 rounded transition-colors"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
