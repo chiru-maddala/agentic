@@ -1,0 +1,200 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import ReportDisplay from './ReportDisplay'
+
+type Session = { id: string; title: string; created_at: string }
+type Message = { id: string; role: 'user' | 'assistant'; content: string }
+
+export default function ChatSection() {
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [activeSession, setActiveSession] = useState<Session | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  const loadSessions = useCallback(async () => {
+    const res = await fetch('/api/chat')
+    const data = await res.json()
+    setSessions(Array.isArray(data) ? data : [])
+  }, [])
+
+  useEffect(() => { loadSessions() }, [loadSessions])
+
+  const openSession = useCallback(async (session: Session) => {
+    setActiveSession(session)
+    const res = await fetch(`/api/chat/${session.id}`)
+    const data = await res.json()
+    setMessages(Array.isArray(data) ? data : [])
+  }, [])
+
+  const newChat = async () => {
+    const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+    const session = await res.json()
+    await loadSessions()
+    setActiveSession(session)
+    setMessages([])
+  }
+
+  const deleteSession = async (id: string) => {
+    await fetch(`/api/chat/${id}`, { method: 'DELETE' })
+    if (activeSession?.id === id) {
+      setActiveSession(null)
+      setMessages([])
+    }
+    await loadSessions()
+  }
+
+  const sendMessage = async () => {
+    if (!input.trim() || !activeSession || streaming) return
+    const text = input.trim()
+    setInput('')
+    setMessages((prev) => [...prev, { id: Date.now().toString(), role: 'user', content: text }])
+    setStreaming(true)
+
+    const assistantId = (Date.now() + 1).toString()
+    setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+
+    const res = await fetch(`/api/chat/${activeSession.id}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    })
+
+    if (!res.body) { setStreaming(false); return }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      setMessages((prev) =>
+        prev.map((m) => m.id === assistantId ? { ...m, content: m.content + chunk } : m)
+      )
+    }
+    setStreaming(false)
+    await loadSessions()
+  }
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  return (
+    <div className="flex h-full">
+      {/* Chat sidebar */}
+      <aside className="w-64 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+        <div className="p-3 border-b border-gray-800">
+          <button
+            onClick={newChat}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors"
+          >
+            + New Chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {sessions.length === 0 && (
+            <p className="text-xs text-gray-500 px-2 py-4">No chats yet.</p>
+          )}
+          {sessions.map((s) => (
+            <div key={s.id} className="group relative">
+              <button
+                onClick={() => openSession(s)}
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors pr-8 ${
+                  activeSession?.id === s.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                <div className="truncate font-medium">{s.title}</div>
+                <div className={`text-xs mt-0.5 ${activeSession?.id === s.id ? 'text-indigo-200' : 'text-gray-500'}`}>
+                  {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </div>
+              </button>
+              <button
+                onClick={() => deleteSession(s.id)}
+                className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity text-xs p-1"
+                title="Delete"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      {/* Chat main */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {!activeSession ? (
+          <div className="flex flex-col items-center justify-center h-full text-center px-8">
+            <div className="text-5xl mb-4">💬</div>
+            <h2 className="text-xl font-semibold text-gray-300 mb-2">Intellina AI Assistant</h2>
+            <p className="text-gray-500 text-sm max-w-xs">
+              Ask questions about AI trends, get strategic advice, or analyze report insights.
+            </p>
+            <button
+              onClick={newChat}
+              className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+            >
+              Start a new chat
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {messages.length === 0 && (
+                <div className="text-center text-gray-500 text-sm mt-8">
+                  Send a message to start the conversation.
+                </div>
+              )}
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {m.role === 'user' ? (
+                    <div className="max-w-lg bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm">
+                      {m.content}
+                    </div>
+                  ) : (
+                    <div className="max-w-3xl w-full">
+                      <div className="prose prose-invert prose-sm max-w-none">
+                        <ReportDisplay content={m.content} streaming={streaming && m === messages[messages.length - 1]} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+
+            <div className="p-4 border-t border-gray-800">
+              <div className="flex gap-2">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendMessage()
+                    }
+                  }}
+                  placeholder="Ask anything about AI, Intellina strategy, or your reports…"
+                  rows={2}
+                  disabled={streaming}
+                  className="flex-1 bg-gray-800 text-white text-sm rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-500 disabled:opacity-50"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={streaming || !input.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors self-end"
+                >
+                  {streaming ? '…' : 'Send'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-1.5 ml-1">Press Enter to send · Shift+Enter for newline</p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

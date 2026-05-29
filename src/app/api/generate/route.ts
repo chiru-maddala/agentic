@@ -44,7 +44,40 @@ export async function POST() {
         }
 
         if (fullContent) {
-          await supabase.from('reports').insert({ date: today, content: fullContent })
+          const { data: report } = await supabase
+            .from('reports')
+            .insert({ date: today, content: fullContent })
+            .select()
+            .single()
+
+          // Auto-extract tasks from Priority Actions section
+          if (report) {
+            const actionsMatch = fullContent.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)
+            if (actionsMatch) {
+              const lines = actionsMatch[0].split('\n').filter((l) => /^[-*•]\s/.test(l.trim()))
+              const pillarMap: Record<string, string> = {
+                'learning': 'Learning AI',
+                'cypher': 'Learning AI',
+                'morpheus': 'Learning AI',
+                'autocampus': 'Learning AI',
+                'orchea': 'Enterprise AI',
+                'enterprise': 'Enterprise AI',
+                'databricks': 'Enterprise AI',
+                'terranine': 'AI Infrastructure',
+                'matrix': 'AI Infrastructure',
+                'infrastructure': 'AI Infrastructure',
+              }
+              const taskInserts = lines.slice(0, 10).map((line) => {
+                const title = line.replace(/^[-*•]\s*/, '').trim().slice(0, 200)
+                const lower = title.toLowerCase()
+                const pillar = Object.entries(pillarMap).find(([k]) => lower.includes(k))?.[1] ?? 'General'
+                return { title, pillar, source: 'report', report_id: report.id }
+              })
+              if (taskInserts.length > 0) {
+                await supabase.from('tasks').insert(taskInserts)
+              }
+            }
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
