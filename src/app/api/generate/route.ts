@@ -9,12 +9,6 @@ export async function POST() {
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  const { data: existing } = await supabase
-    .from('reports')
-    .select('id')
-    .eq('date', today)
-    .single()
-
   let tweets: string
   try {
     tweets = await fetchRecentTweets()
@@ -49,14 +43,7 @@ export async function POST() {
         }
       }
 
-      if (existing) {
-        await supabase
-          .from('reports')
-          .update({ content: fullContent })
-          .eq('id', existing.id)
-      } else {
-        await supabase.from('reports').insert({ date: today, content: fullContent })
-      }
+      await supabase.from('reports').insert({ date: today, content: fullContent })
 
       controller.close()
     },

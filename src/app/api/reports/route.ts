@@ -6,7 +6,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('reports')
     .select('id, date, created_at')
-    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(30)
 
   if (error) {

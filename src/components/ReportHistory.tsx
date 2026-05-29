@@ -10,7 +10,7 @@ type ReportMeta = {
 
 type Props = {
   selectedId: string | null
-  onSelect: (id: string, date: string) => void
+  onSelect: (id: string, date: string, created_at: string) => void
 }
 
 export default function ReportHistory({ selectedId, onSelect }: Props) {
@@ -30,26 +30,37 @@ export default function ReportHistory({ selectedId, onSelect }: Props) {
 
   return (
     <ul className="space-y-1">
-      {reports.map((r) => (
-        <li key={r.id}>
-          <button
-            onClick={() => onSelect(r.id, r.date)}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-              selectedId === r.id
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            {new Date(r.date).toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              timeZone: 'UTC',
-            })}
-          </button>
-        </li>
-      ))}
+      {reports.map((r) => {
+        const dt = new Date(r.created_at)
+        const datePart = dt.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+        const timePart = dt.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        })
+        return (
+          <li key={r.id}>
+            <button
+              onClick={() => onSelect(r.id, r.date, r.created_at)}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                selectedId === r.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <div className="font-medium">{datePart}</div>
+              <div className={`text-xs mt-0.5 ${selectedId === r.id ? 'text-indigo-200' : 'text-gray-500'}`}>
+                {timePart}
+              </div>
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }

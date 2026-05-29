@@ -10,6 +10,7 @@ export default function Home() {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
   const [content, setContent] = useState<string>('')
   const [streaming, setStreaming] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -32,9 +33,10 @@ export default function Home() {
     router.refresh()
   }
 
-  const loadReport = useCallback(async (id: string, date: string) => {
+  const loadReport = useCallback(async (id: string, date: string, created_at?: string) => {
     setSelectedId(id)
     setSelectedDate(date)
+    setSelectedCreatedAt(created_at ?? null)
     setStreaming(false)
     const res = await fetch(`/api/reports/${id}`)
     const data = await res.json()
@@ -69,6 +71,7 @@ export default function Home() {
     if (reports[0]) {
       setSelectedId(reports[0].id)
       setSelectedDate(reports[0].date)
+      setSelectedCreatedAt(reports[0].created_at)
     }
   }
 
@@ -76,7 +79,7 @@ export default function Home() {
     fetch('/api/reports')
       .then((r) => r.json())
       .then((reports) => {
-        if (reports[0]) loadReport(reports[0].id, reports[0].date)
+        if (reports[0]) loadReport(reports[0].id, reports[0].date, reports[0].created_at)
       })
   }, [loadReport])
 
@@ -145,13 +148,23 @@ export default function Home() {
             {selectedDate && !streaming && (
               <div className="flex items-center justify-between mb-6">
                 <span className="text-xs text-gray-500">
-                  {new Date(selectedDate).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    timeZone: 'UTC',
-                  })}
+                  {selectedCreatedAt
+                    ? new Date(selectedCreatedAt).toLocaleString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })
+                    : new Date(selectedDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        timeZone: 'UTC',
+                      })}
                 </span>
                 {isToday && (
                   <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-1 rounded-full">
