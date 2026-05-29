@@ -3,7 +3,7 @@ import { getSupabase } from '@/lib/supabase'
 import { fetchRecentTweets } from '@/lib/twitter'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function POST() {
   const supabase = getSupabase()
@@ -22,30 +22,36 @@ export async function POST() {
   const stream = new ReadableStream({
     async start(controller) {
       let fullContent = ''
+      try {
+        const anthropicStream = await client.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4096,
+          system: buildSystemPrompt(),
+          messages: [
+            { role: 'user', content: buildUserPrompt(tweets, today) },
+          ],
+        })
 
-      const anthropicStream = await client.messages.stream({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: buildSystemPrompt(),
-        messages: [
-          { role: 'user', content: buildUserPrompt(tweets, today) },
-        ],
-      })
-
-      for await (const chunk of anthropicStream) {
-        if (
-          chunk.type === 'content_block_delta' &&
-          chunk.delta.type === 'text_delta'
-        ) {
-          const text = chunk.delta.text
-          fullContent += text
-          controller.enqueue(encoder.encode(text))
+        for await (const chunk of anthropicStream) {
+          if (
+            chunk.type === 'content_block_delta' &&
+            chunk.delta.type === 'text_delta'
+          ) {
+            const text = chunk.delta.text
+            fullContent += text
+            controller.enqueue(encoder.encode(text))
+          }
         }
+
+        if (fullContent) {
+          await supabase.from('reports').insert({ date: today, content: fullContent })
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        controller.enqueue(encoder.encode(`\n\n⚠️ Error: ${msg}`))
+      } finally {
+        controller.close()
       }
-
-      await supabase.from('reports').insert({ date: today, content: fullContent })
-
-      controller.close()
     },
   })
 
