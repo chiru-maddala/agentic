@@ -19,3 +19,19 @@ export async function GET(
 
   return Response.json(data)
 }
+
+export async function DELETE(
+  _req: Request,
+  ctx: RouteContext<'/api/reports/[id]'>
+) {
+  const supabase = getSupabase()
+  const { id } = await ctx.params
+
+  const { error } = await supabase.from('reports').delete().eq('id', id)
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 })
+  }
+
+  return Response.json({ success: true })
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ReportHistory from '@/components/ReportHistory'
 import ReportDisplay from '@/components/ReportDisplay'
@@ -16,6 +16,7 @@ export default function Home() {
   const [generating, setGenerating] = useState(false)
   const [historyKey, setHistoryKey] = useState(0)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   const ADMIN_EMAIL = 'chirans@gmail.com'
 
@@ -75,6 +76,50 @@ export default function Home() {
     }
   }
 
+  const downloadPDF = async () => {
+    if (!reportRef.current) return
+    const { default: html2canvas } = await import('html2canvas')
+    const { default: jsPDF } = await import('jspdf')
+    const clone = reportRef.current.cloneNode(true) as HTMLElement
+    clone.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;padding:48px;background:white;color:#111827;font-family:Georgia,serif;font-size:14px;line-height:1.8;'
+    const style = document.createElement('style')
+    style.textContent = '*{color:#111827!important;background:transparent!important}h1,h2,h3,h4{color:#1f2937!important;margin-top:1em}code,pre{background:#f3f4f6!important;color:#374151!important;padding:2px 4px;border-radius:3px}a{color:#4f46e5!important}'
+    clone.appendChild(style)
+    document.body.appendChild(clone)
+    try {
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const margin = 30
+      const imgW = pageW - margin * 2
+      const imgH = (canvas.height * imgW) / canvas.width
+      const contentH = pageH - margin * 2
+      const pages = Math.ceil(imgH / contentH)
+      for (let i = 0; i < pages; i++) {
+        if (i > 0) pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
+      }
+      pdf.save(`IntelliRadar-${new Date().toISOString().slice(0, 10)}.pdf`)
+    } finally {
+      document.body.removeChild(clone)
+    }
+  }
+
+  const deleteReport = async () => {
+    if (!selectedId) return
+    if (!window.confirm('Are you sure you want to delete this report? This cannot be undone.')) return
+    await fetch(`/api/reports/${selectedId}`, { method: 'DELETE' })
+    setSelectedId(null)
+    setSelectedDate(null)
+    setSelectedCreatedAt(null)
+    setContent('')
+    setHistoryKey((k) => k + 1)
+    const listRes = await fetch('/api/reports')
+    const reports = await listRes.json()
+    if (reports[0]) loadReport(reports[0].id, reports[0].date, reports[0].created_at)
+  }
+
   useEffect(() => {
     fetch('/api/reports')
       .then((r) => r.json())
@@ -109,8 +154,8 @@ export default function Home() {
                 Generating...
               </>
             ) : (
-              <>&#9889; Generate Today&apos;s Report</>
-            )}
+              <>&#9889; Generate Report</>
+)}
           </button>
         </div>
 
@@ -166,21 +211,45 @@ export default function Home() {
                         timeZone: 'UTC',
                       })}
                 </span>
-                {isToday && (
-                  <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-1 rounded-full">
-                    Today
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {isToday && (
+                    <span className="text-xs bg-indigo-900 text-indigo-300 px-2 py-1 rounded-full">
+                      Today
+                    </span>
+                  )}
+                  <button
+                    onClick={downloadPDF}
+                    title="Download as PDF"
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                    PDF
+                  </button>
+                  <button
+                    onClick={deleteReport}
+                    title="Delete report"
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded-lg transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Delete
+                  </button>
+                </div>
               </div>
             )}
-            <ReportDisplay content={content} streaming={streaming} />
+            <div ref={reportRef}>
+              <ReportDisplay content={content} streaming={streaming} />
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
             <div className="text-5xl mb-4">&#128225;</div>
             <h2 className="text-xl font-semibold text-gray-300 mb-2">No report yet</h2>
             <p className="text-gray-500 text-sm max-w-xs">
-              Click &quot;Generate Today&apos;s Report&quot; to fetch the latest AI intelligence for Intellina.
+              Click &quot;Generate Report&quot; to fetch the latest AI intelligence for Intellina.
             </p>
           </div>
         )}

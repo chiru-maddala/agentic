@@ -25,7 +25,7 @@ export async function POST() {
       try {
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 4096,
+          max_tokens: 8000,
           system: buildSystemPrompt(),
           messages: [
             { role: 'user', content: buildUserPrompt(tweets, today) },
