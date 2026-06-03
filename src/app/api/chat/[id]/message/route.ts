@@ -47,47 +47,55 @@ const TOOLS: Anthropic.Tool[] = [
 ]
 
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
-  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? vercelUrl ?? 'http://localhost:3000'
+  const supabase = getSupabase()
 
   if (name === 'create_task') {
-    const res = await fetch(`${base}/api/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...input, source: 'chat' }),
-    })
-    const data = await res.json()
-    if (data.error) return `Error creating task: ${data.error}`
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert({
+        title: input.title as string,
+        description: (input.description as string) ?? null,
+        pillar: (input.pillar as string) ?? 'General',
+        status: 'todo',
+        source: 'chat',
+      })
+      .select()
+      .single()
+    if (error) return `Error creating task: ${error.message}`
     return `Task created: "${data.title}" (id: ${data.id})`
   }
 
   if (name === 'create_note') {
-    const res = await fetch(`${base}/api/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    })
-    const data = await res.json()
-    if (data.error) return `Error creating note: ${data.error}`
+    const { data, error } = await supabase
+      .from('notes')
+      .insert({
+        title: (input.title as string) ?? 'Untitled Note',
+        content: (input.content as string) ?? '',
+      })
+      .select()
+      .single()
+    if (error) return `Error creating note: ${error.message}`
     return `Note created: "${data.title}" (id: ${data.id})`
   }
 
   if (name === 'list_tasks') {
-    const res = await fetch(`${base}/api/tasks`)
-    const data = await res.json()
-    if (!Array.isArray(data)) return 'Error fetching tasks'
-    if (data.length === 0) return 'No tasks found.'
-    return data
-      .map((t: { title: string; status: string; pillar: string }) => `- [${t.status}] ${t.title} (${t.pillar})`)
-      .join('\n')
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('title, status, pillar')
+      .order('created_at', { ascending: false })
+    if (error) return `Error fetching tasks: ${error.message}`
+    if (!data || data.length === 0) return 'No tasks found.'
+    return data.map((t) => `- [${t.status}] ${t.title} (${t.pillar})`).join('\n')
   }
 
   if (name === 'list_notes') {
-    const res = await fetch(`${base}/api/notes`)
-    const data = await res.json()
-    if (!Array.isArray(data)) return 'Error fetching notes'
-    if (data.length === 0) return 'No notes found.'
-    return data.map((n: { title: string }) => `- ${n.title}`).join('\n')
+    const { data, error } = await supabase
+      .from('notes')
+      .select('title')
+      .order('updated_at', { ascending: false })
+    if (error) return `Error fetching notes: ${error.message}`
+    if (!data || data.length === 0) return 'No notes found.'
+    return data.map((n) => `- ${n.title}`).join('\n')
   }
 
   return 'Unknown tool'
