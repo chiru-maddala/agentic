@@ -57,7 +57,7 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
         description: (input.description as string) ?? null,
         pillar: (input.pillar as string) ?? 'General',
         status: 'todo',
-        source: 'chat',
+        source: 'report',
       })
       .select()
       .single()
