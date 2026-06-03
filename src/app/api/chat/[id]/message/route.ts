@@ -4,6 +4,95 @@ import { buildSystemPrompt } from '@/lib/prompt'
 
 export const maxDuration = 300
 
+const TOOLS: Anthropic.Tool[] = [
+  {
+    name: 'create_task',
+    description: 'Create a new task in the Tasks app. Use this when the user asks to add, save, or create tasks.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Short task title' },
+        description: { type: 'string', description: 'Optional longer description' },
+        pillar: {
+          type: 'string',
+          enum: ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General'],
+          description: 'Which Intellina pillar this task belongs to',
+        },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: 'create_note',
+    description: 'Create a new note in the Notes app. Use this when the user asks to save, add, or create notes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Note title' },
+        content: { type: 'string', description: 'Note body in markdown' },
+      },
+      required: ['title', 'content'],
+    },
+  },
+  {
+    name: 'list_tasks',
+    description: 'Retrieve all tasks from the Tasks app.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'list_notes',
+    description: 'Retrieve all notes from the Notes app.',
+    input_schema: { type: 'object', properties: {} },
+  },
+]
+
+async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
+  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? vercelUrl ?? 'http://localhost:3000'
+
+  if (name === 'create_task') {
+    const res = await fetch(`${base}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, source: 'chat' }),
+    })
+    const data = await res.json()
+    if (data.error) return `Error creating task: ${data.error}`
+    return `Task created: "${data.title}" (id: ${data.id})`
+  }
+
+  if (name === 'create_note') {
+    const res = await fetch(`${base}/api/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    const data = await res.json()
+    if (data.error) return `Error creating note: ${data.error}`
+    return `Note created: "${data.title}" (id: ${data.id})`
+  }
+
+  if (name === 'list_tasks') {
+    const res = await fetch(`${base}/api/tasks`)
+    const data = await res.json()
+    if (!Array.isArray(data)) return 'Error fetching tasks'
+    if (data.length === 0) return 'No tasks found.'
+    return data
+      .map((t: { title: string; status: string; pillar: string }) => `- [${t.status}] ${t.title} (${t.pillar})`)
+      .join('\n')
+  }
+
+  if (name === 'list_notes') {
+    const res = await fetch(`${base}/api/notes`)
+    const data = await res.json()
+    if (!Array.isArray(data)) return 'Error fetching notes'
+    if (data.length === 0) return 'No notes found.'
+    return data.map((n: { title: string }) => `- ${n.title}`).join('\n')
+  }
+
+  return 'Unknown tool'
+}
+
 export async function POST(
   req: Request,
   ctx: RouteContext<'/api/chat/[id]/message'>
@@ -12,37 +101,37 @@ export async function POST(
   const { id: sessionId } = await ctx.params
   const { message } = await req.json()
 
-  // Save user message
   await supabase.from('chat_messages').insert({
     session_id: sessionId,
     role: 'user',
     content: message,
   })
 
-  // Load all reports for context
   const { data: reports } = await supabase
     .from('reports')
     .select('date, content')
     .order('created_at', { ascending: false })
     .limit(10)
 
-  // Load conversation history
   const { data: history } = await supabase
     .from('chat_messages')
     .select('role, content')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
 
-  const reportsContext = reports && reports.length > 0
-    ? '\n\n### Recent Intelligence Reports:\n' +
-      reports.map((r) => `**Report ${r.date}:**\n${r.content}`).join('\n\n---\n\n')
-    : ''
+  const reportsContext =
+    reports && reports.length > 0
+      ? '\n\n### Recent Intelligence Reports:\n' +
+        reports.map((r) => `**Report ${r.date}:**\n${r.content}`).join('\n\n---\n\n')
+      : ''
 
-  const systemPrompt = buildSystemPrompt() +
+  const systemPrompt =
+    buildSystemPrompt() +
     '\n\nYou are now acting as an interactive assistant. Answer questions, provide analysis, and help with strategy based on the intelligence reports and your knowledge.' +
+    '\n\nYou have access to tools to manage Tasks and Notes. When the user asks you to add, save, or create tasks or notes — use the appropriate tool. After using tools, summarize what you did.' +
     reportsContext
 
-  const messages = (history ?? []).map((m) => ({
+  const baseMessages: Anthropic.MessageParam[] = (history ?? []).map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
   }))
@@ -52,44 +141,82 @@ export async function POST(
 
   const stream = new ReadableStream({
     async start(controller) {
-      let fullContent = ''
-      try {
-        const anthropicStream = await client.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
-          system: systemPrompt,
-          messages,
-        })
+      let allAssistantText = ''
+      let loopMessages: Anthropic.MessageParam[] = baseMessages
 
-        for await (const chunk of anthropicStream) {
-          if (
-            chunk.type === 'content_block_delta' &&
-            chunk.delta.type === 'text_delta'
-          ) {
-            const text = chunk.delta.text
-            fullContent += text
-            controller.enqueue(encoder.encode(text))
+      try {
+        let continueLoop = true
+
+        while (continueLoop) {
+          const anthropicStream = client.messages.stream({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 4000,
+            system: systemPrompt,
+            messages: loopMessages,
+            tools: TOOLS,
+          })
+
+          let turnText = ''
+
+          for await (const chunk of anthropicStream) {
+            if (
+              chunk.type === 'content_block_delta' &&
+              chunk.delta.type === 'text_delta'
+            ) {
+              const text = chunk.delta.text
+              turnText += text
+              allAssistantText += text
+              controller.enqueue(encoder.encode(text))
+            }
+          }
+
+          const finalMsg = await anthropicStream.finalMessage()
+
+          if (finalMsg.stop_reason === 'tool_use') {
+            const toolUseBlocks = finalMsg.content.filter(
+              (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
+            )
+
+            const toolResults: Anthropic.ToolResultBlockParam[] = []
+
+            for (const block of toolUseBlocks) {
+              const result = await executeTool(
+                block.name,
+                block.input as Record<string, unknown>
+              )
+              toolResults.push({
+                type: 'tool_result',
+                tool_use_id: block.id,
+                content: result,
+              })
+            }
+
+            loopMessages = [
+              ...loopMessages,
+              { role: 'assistant', content: finalMsg.content },
+              { role: 'user', content: toolResults },
+            ]
+          } else {
+            continueLoop = false
           }
         }
 
-        if (fullContent) {
+        if (allAssistantText) {
           await supabase.from('chat_messages').insert({
             session_id: sessionId,
             role: 'assistant',
-            content: fullContent,
+            content: allAssistantText,
           })
 
-          // Auto-title session from first exchange
-          const { data: msgCount } = await supabase
+          const { count } = await supabase
             .from('chat_messages')
             .select('id', { count: 'exact', head: true })
             .eq('session_id', sessionId)
 
-          if ((msgCount as unknown as number) <= 2) {
-            const titleSnippet = message.slice(0, 60)
+          if ((count ?? 0) <= 2) {
             await supabase
               .from('chat_sessions')
-              .update({ title: titleSnippet })
+              .update({ title: message.slice(0, 60) })
               .eq('id', sessionId)
           }
         }
