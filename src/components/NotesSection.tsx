@@ -12,6 +12,14 @@ export default function NotesSection() {
   const [dirty, setDirty] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  // Prevents the input event fired by programmatic innerHTML assignment
+  // from triggering autosave with wrong note state
+  const suppressInput = useRef(false)
+  // Stable refs so callbacks always see current values without stale closures
+  const activeRef = useRef<Note | null>(null)
+  const titleRef = useRef('')
+  activeRef.current = active
+  titleRef.current = title
 
   const loadNotes = useCallback(async () => {
     const res = await fetch('/api/notes')
@@ -21,16 +29,45 @@ export default function NotesSection() {
 
   useEffect(() => { loadNotes() }, [loadNotes])
 
+  const saveNote = useCallback(async (noteId: string, noteTitle: string, content: string) => {
+    await fetch(`/api/notes/${noteId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: noteTitle, content }),
+    })
+    setDirty(false)
+    loadNotes()
+  }, [loadNotes])
+
+  const flushPendingSave = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    const cur = activeRef.current
+    if (cur && editorRef.current) {
+      saveNote(cur.id, titleRef.current, editorRef.current.innerHTML)
+    }
+  }, [saveNote])
+
   const openNote = useCallback(async (id: string) => {
+    // Flush any unsaved changes for the currently open note before switching
+    if (activeRef.current && activeRef.current.id !== id) {
+      flushPendingSave()
+    }
+
     const res = await fetch(`/api/notes/${id}`)
     const data: Note = await res.json()
     setActive(data)
     setTitle(data.title)
     setDirty(false)
-    setTimeout(() => {
-      if (editorRef.current) editorRef.current.innerHTML = data.content
-    }, 0)
-  }, [])
+
+    // Suppress the spurious input event that contentEditable fires
+    // when we set innerHTML programmatically
+    suppressInput.current = true
+    if (editorRef.current) editorRef.current.innerHTML = data.content ?? ''
+    requestAnimationFrame(() => { suppressInput.current = false })
+  }, [flushPendingSave])
 
   const newNote = async () => {
     const res = await fetch('/api/notes', {
@@ -42,16 +79,6 @@ export default function NotesSection() {
     await loadNotes()
     await openNote(note.id)
   }
-
-  const saveNote = useCallback(async (noteId: string, noteTitle: string, content: string) => {
-    await fetch(`/api/notes/${noteId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: noteTitle, content }),
-    })
-    setDirty(false)
-    loadNotes()
-  }, [loadNotes])
 
   const scheduleAutosave = useCallback((noteId: string, noteTitle: string, content: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -65,6 +92,7 @@ export default function NotesSection() {
   }
 
   const handleEditorInput = () => {
+    if (suppressInput.current) return
     setDirty(true)
     if (active) scheduleAutosave(active.id, title, editorRef.current?.innerHTML ?? '')
   }
