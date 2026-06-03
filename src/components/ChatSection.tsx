@@ -49,11 +49,11 @@ export default function ChatSection() {
   const sendMessage = async () => {
     if (!input.trim() || !activeSession || streaming) return
     const text = input.trim()
+    const userId = crypto.randomUUID()
+    const assistantId = crypto.randomUUID()
     setInput('')
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: 'user', content: text }])
+    setMessages((prev) => [...prev, { id: userId, role: 'user', content: text }])
     setStreaming(true)
-
-    const assistantId = (Date.now() + 1).toString()
     setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     const res = await fetch(`/api/chat/${activeSession.id}/message`, {
