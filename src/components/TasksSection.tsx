@@ -12,6 +12,8 @@ type Task = {
   created_at: string
 }
 
+type EditState = { title: string; description: string; pillar: string }
+
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General']
 const STATUSES: Task['status'][] = ['todo', 'in-progress', 'done']
 const STATUS_LABELS: Record<Task['status'], string> = {
@@ -31,6 +33,8 @@ export default function TasksSection() {
   const [form, setForm] = useState({ title: '', description: '', pillar: 'General' })
   const [filterPillar, setFilterPillar] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editState, setEditState] = useState<EditState>({ title: '', description: '', pillar: 'General' })
 
   const loadTasks = useCallback(async () => {
     const res = await fetch('/api/tasks')
@@ -63,6 +67,30 @@ export default function TasksSection() {
 
   const deleteTask = async (id: string) => {
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    loadTasks()
+  }
+
+  const startEdit = (task: Task) => {
+    setEditingId(task.id)
+    setEditState({ title: task.title, description: task.description ?? '', pillar: task.pillar })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+  }
+
+  const saveEdit = async (id: string) => {
+    if (!editState.title.trim()) return
+    await fetch(`/api/tasks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: editState.title.trim(),
+        description: editState.description.trim() || null,
+        pillar: editState.pillar,
+      }),
+    })
+    setEditingId(null)
     loadTasks()
   }
 
@@ -191,40 +219,96 @@ export default function TasksSection() {
                     {pillarTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="bg-white border border-[#E3E0D8] rounded-xl px-4 py-3 flex items-start gap-3 group hover:border-[#D4C8BC] transition-colors shadow-sm"
+                        className="bg-white border border-[#E3E0D8] rounded-xl shadow-sm overflow-hidden"
                       >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-sm ${task.status === 'done' ? 'line-through text-[#9CA3AF]' : 'text-[#1A1A1A]'}`}>
-                              {task.title}
-                            </span>
-                            {(task.source === 'report' || task.source === 'chat') && (
-                              <span className="text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-0.5 rounded-full">
-                                from {task.source}
-                              </span>
-                            )}
+                        {editingId === task.id ? (
+                          /* ── Inline edit form ── */
+                          <div className="px-4 py-3 space-y-2.5">
+                            <input
+                              autoFocus
+                              value={editState.title}
+                              onChange={(e) => setEditState({ ...editState, title: e.target.value })}
+                              onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(task.id); if (e.key === 'Escape') cancelEdit() }}
+                              className="w-full text-sm text-[#1A1A1A] bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30 focus:border-[#D4622A]"
+                            />
+                            <textarea
+                              value={editState.description}
+                              onChange={(e) => setEditState({ ...editState, description: e.target.value })}
+                              placeholder="Description (optional)"
+                              rows={2}
+                              className="w-full text-sm text-[#374151] bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30 focus:border-[#D4622A] placeholder-[#C4BFB5]"
+                            />
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={editState.pillar}
+                                onChange={(e) => setEditState({ ...editState, pillar: e.target.value })}
+                                className="text-xs bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-2.5 py-1.5 text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
+                              >
+                                {PILLARS.map((p) => <option key={p}>{p}</option>)}
+                              </select>
+                              <div className="flex-1" />
+                              <button
+                                onClick={() => saveEdit(task.id)}
+                                className="text-xs bg-[#D4622A] hover:bg-[#C05520] text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="text-xs text-[#9CA3AF] hover:text-[#6B6B6B] px-2 py-1.5 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                          {task.description && (
-                            <p className="text-xs text-[#9CA3AF] mt-1">{task.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <select
-                            value={task.status}
-                            onChange={(e) => updateStatus(task.id, e.target.value as Task['status'])}
-                            className={`text-xs rounded-full px-2.5 py-1 focus:outline-none cursor-pointer ${STATUS_COLORS[task.status]}`}
-                          >
-                            {STATUSES.map((s) => (
-                              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={() => deleteTask(task.id)}
-                            className="opacity-0 group-hover:opacity-100 text-[#C4BFB5] hover:text-red-500 transition-all text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
+                        ) : (
+                          /* ── Normal view ── */
+                          <div className="px-4 py-3 flex items-start gap-3 group hover:border-[#D4C8BC] transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-sm ${task.status === 'done' ? 'line-through text-[#9CA3AF]' : 'text-[#1A1A1A]'}`}>
+                                  {task.title}
+                                </span>
+                                {(task.source === 'report' || task.source === 'chat') && (
+                                  <span className="text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-0.5 rounded-full">
+                                    from {task.source}
+                                  </span>
+                                )}
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-[#9CA3AF] mt-1">{task.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <select
+                                value={task.status}
+                                onChange={(e) => updateStatus(task.id, e.target.value as Task['status'])}
+                                className={`text-xs rounded-full px-2.5 py-1 focus:outline-none cursor-pointer ${STATUS_COLORS[task.status]}`}
+                              >
+                                {STATUSES.map((s) => (
+                                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => startEdit(task)}
+                                className="opacity-0 group-hover:opacity-100 text-[#9CA3AF] hover:text-[#1A1A1A] transition-all p-1 rounded"
+                                title="Edit"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => deleteTask(task.id)}
+                                className="opacity-0 group-hover:opacity-100 text-[#C4BFB5] hover:text-red-500 transition-all text-xs p-1 rounded"
+                                title="Delete"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
