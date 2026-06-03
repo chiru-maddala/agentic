@@ -24,7 +24,7 @@ export default function ReportHistory({ selectedId, onSelect }: Props) {
 
   if (reports.length === 0) {
     return (
-      <div className="text-sm text-gray-500 px-2 py-4">No reports yet.</div>
+      <div className="text-sm text-[#9CA3AF] px-2 py-4">No reports yet.</div>
     )
   }
 
@@ -49,12 +49,12 @@ export default function ReportHistory({ selectedId, onSelect }: Props) {
               onClick={() => onSelect(r.id, r.date, r.created_at)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 selectedId === r.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-700'
+                  ? 'bg-[#E8E4DC] text-[#1A1A1A] font-medium'
+                  : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
               }`}
             >
               <div className="font-medium">{datePart}</div>
-              <div className={`text-xs mt-0.5 ${selectedId === r.id ? 'text-indigo-200' : 'text-gray-500'}`}>
+              <div className={`text-xs mt-0.5 ${selectedId === r.id ? 'text-[#6B6B6B]' : 'text-[#9CA3AF]'}`}>
                 {timePart}
               </div>
             </button>

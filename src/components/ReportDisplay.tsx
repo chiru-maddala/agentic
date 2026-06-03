@@ -93,10 +93,20 @@ export default function ReportDisplay({ content, streaming }: Props) {
 
   return (
     <div ref={containerRef} onContextMenu={handleContextMenu} className="relative">
-      <div className="prose prose-invert prose-sm max-w-none">
+      <div className="prose prose-sm max-w-none
+        prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+        prose-p:text-[#374151] prose-p:leading-relaxed
+        prose-strong:text-[#1A1A1A]
+        prose-a:text-[#D4622A] prose-a:no-underline hover:prose-a:underline
+        prose-code:text-[#D4622A] prose-code:bg-[#FEF3EC] prose-code:px-1 prose-code:rounded
+        prose-pre:bg-[#F5F3EE] prose-pre:border prose-pre:border-[#E3E0D8]
+        prose-blockquote:border-l-[#D4622A] prose-blockquote:text-[#6B6B6B]
+        prose-hr:border-[#E3E0D8]
+        prose-li:text-[#374151]
+        prose-th:text-[#1A1A1A] prose-td:text-[#374151]">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
         {streaming && (
-          <span className="inline-block w-2 h-4 bg-indigo-400 animate-pulse ml-1 align-middle" />
+          <span className="inline-block w-2 h-4 bg-[#D4622A] animate-pulse ml-1 align-middle rounded-sm" />
         )}
       </div>
 
@@ -104,19 +114,19 @@ export default function ReportDisplay({ content, streaming }: Props) {
         <div
           data-context-menu
           style={{ position: 'fixed', top: menu.y, left: menu.x, zIndex: 9999 }}
-          className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 min-w-[160px] text-sm"
+          className="bg-white border border-[#E3E0D8] rounded-xl shadow-lg py-1 min-w-[160px] text-sm"
         >
           <button
             onClick={addToTask}
             disabled={busy}
-            className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             <span>✅</span> Add to Tasks
           </button>
           <button
             onClick={addToNote}
             disabled={busy}
-            className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             <span>📝</span> Add to Notes
           </button>
@@ -125,8 +135,10 @@ export default function ReportDisplay({ content, streaming }: Props) {
 
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg transition-all ${
-            toast.ok ? 'bg-green-700 text-green-100' : 'bg-red-700 text-red-100'
+          className={`fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg border ${
+            toast.ok
+              ? 'bg-white text-green-700 border-green-200'
+              : 'bg-white text-red-600 border-red-200'
           }`}
         >
           {toast.message}
