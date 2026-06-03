@@ -159,18 +159,18 @@ export default function Home() {
         </div>
 
         {/* Tab nav */}
-        <nav className="px-2 py-3 border-b border-[#E3E0D8] space-y-0.5">
+        <nav className="px-3 py-3 border-b border-[#E3E0D8] space-y-1">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] transition-all ${
                 tab === t.id
-                  ? 'bg-[#E8E4DC] text-[#1A1A1A] font-medium'
+                  ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
                   : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
               }`}
             >
-              <span>{t.icon}</span>
+              <span className="text-base leading-none">{t.icon}</span>
               <span>{t.label}</span>
             </button>
           ))}
