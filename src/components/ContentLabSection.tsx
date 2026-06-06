@@ -379,13 +379,16 @@ export default function ContentLabSection() {
 
   useEffect(() => { load() }, [load])
 
-  // Keep panelItem synced after reload
+  // Keep panelItem synced after reload — preserve generated_content since list query omits it
   useEffect(() => {
     if (panelItem && !streamingId) {
       const updated = items.find((i) => i.id === panelItem.id)
-      if (updated) setPanelItem(updated)
+      if (updated) {
+        setPanelItem((prev) => prev ? { ...updated, generated_content: prev.generated_content } : updated)
+      }
     }
-  }, [items, panelItem, streamingId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, streamingId])
 
   const closePanel = () => {
     abortRef.current?.abort()
@@ -444,6 +447,8 @@ export default function ContentLabSection() {
         acc += decoder.decode(value, { stream: true })
         setStreamContent(acc)
       }
+      // Store generated content in panelItem so it survives the list reload (which omits generated_content)
+      setPanelItem((prev) => prev ? { ...prev, generated_content: acc, status: 'generated' } : prev)
       await load()
       setStreamingId(null)
     } catch (err: unknown) {
