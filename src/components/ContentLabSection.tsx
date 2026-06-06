@@ -384,10 +384,16 @@ export default function ContentLabSection() {
     setStreamContent('')
   }
 
-  const openItem = (item: LabItem) => {
+  const openItem = async (item: LabItem) => {
     setPanelItem(item)
     setStreamContent('')
     setStreamingId(null)
+    // Fetch full item (including generated_content which list query omits)
+    if (item.status === 'generated') {
+      const res = await fetch(`/api/content-lab/${item.id}`)
+      const full = await res.json()
+      if (!full.error) setPanelItem(full)
+    }
   }
 
   const generate = async (item: LabItem, opts: { wordCount?: number; keywords?: string[]; platform?: string }) => {
@@ -512,7 +518,7 @@ export default function ContentLabSection() {
                               <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full">Generated</span>
                             )}
                             <button
-                              onClick={() => isActive ? generate(item, {}) : openItem(item)}
+                              onClick={() => openItem(item)}
                               disabled={isStreaming}
                               className={`text-xs px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 ${
                                 isActive && !isStreaming
