@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { marked } from 'marked'
 
 type LabItem = {
   id: string
@@ -25,16 +28,26 @@ const PLATFORM_ICONS: Record<string, string> = { LinkedIn: '💼', Instagram: '�
 
 // ─── Tiptap editor for generated content ─────────────────────────────────────
 
+function mdToHtml(md: string): string {
+  // marked.parse returns string (sync when no async extensions)
+  return marked.parse(md) as string
+}
+
 function RichEditor({ content, onChange }: { content: string; onChange: (html: string) => void }) {
+  const html = mdToHtml(content)
   const editor = useEditor({
     extensions: [StarterKit],
-    content,
+    content: html,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
   useEffect(() => {
-    if (editor && content && editor.getHTML() !== content) {
-      editor.commands.setContent(content)
+    if (editor) {
+      const newHtml = mdToHtml(content)
+      // Only update if content meaningfully changed to avoid cursor jumps
+      if (editor.getHTML() !== newHtml) {
+        editor.commands.setContent(newHtml)
+      }
     }
   }, [content, editor])
 
@@ -314,11 +327,11 @@ function ContentPanel({
           </div>
         )}
 
-        {/* Streaming placeholder */}
+        {/* Streaming view — rendered markdown */}
         {streaming && (
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            <div className="prose prose-sm max-w-none prose-headings:text-[#1A1A1A] prose-p:text-[#374151] prose-p:leading-relaxed prose-li:text-[#374151]">
-              <div dangerouslySetInnerHTML={{ __html: streamContent.replace(/\n/g, '<br/>') }} />
+            <div className="prose prose-sm max-w-none prose-headings:text-[#1A1A1A] prose-headings:font-semibold prose-p:text-[#374151] prose-p:leading-relaxed prose-li:text-[#374151] prose-strong:text-[#1A1A1A]">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamContent}</ReactMarkdown>
               <span className="inline-block w-2 h-4 bg-[#D4622A] animate-pulse ml-1 align-middle rounded-sm" />
             </div>
           </div>
