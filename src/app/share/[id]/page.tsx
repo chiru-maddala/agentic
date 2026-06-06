@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import type { Metadata } from 'next'
 import PdfButton from './PdfButton'
+import ContextMenuWrapper from '@/components/ContextMenuWrapper'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -77,16 +78,18 @@ export default async function ShareDocPage({ params }: Props) {
       <main className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold text-[#1A1A1A] mb-2">{doc.title}</h1>
         <p className="text-xs text-[#9CA3AF] mb-8">Generated {formatted}</p>
-        <div
-          id="share-doc-content"
-          className="prose prose-sm max-w-none
-            prose-headings:text-[#1A1A1A] prose-headings:font-semibold
-            prose-p:text-[#374151] prose-p:leading-relaxed
-            prose-strong:text-[#1A1A1A]
-            prose-li:text-[#374151]
-            prose-th:text-[#1A1A1A] prose-td:text-[#374151]"
-          dangerouslySetInnerHTML={{ __html: doc.document_content ?? '' }}
-        />
+        <ContextMenuWrapper showCourse={false}>
+          <div
+            id="share-doc-content"
+            className="prose prose-sm max-w-none
+              prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+              prose-p:text-[#374151] prose-p:leading-relaxed
+              prose-strong:text-[#1A1A1A]
+              prose-li:text-[#374151]
+              prose-th:text-[#1A1A1A] prose-td:text-[#374151]"
+            dangerouslySetInnerHTML={{ __html: doc.document_content ?? '' }}
+          />
+        </ContextMenuWrapper>
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">

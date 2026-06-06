@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import ContextMenuWrapper from './ContextMenuWrapper'
 
 type Task = {
   id: string
@@ -147,22 +148,24 @@ function DocumentPanel({
 
       {/* Document content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div
-          id="task-doc-panel-content"
-          className="prose prose-sm max-w-none
-            prose-headings:text-[#1A1A1A] prose-headings:font-semibold
-            prose-p:text-[#374151] prose-p:leading-relaxed
-            prose-strong:text-[#1A1A1A]
-            prose-li:text-[#374151]
-            prose-th:text-[#1A1A1A] prose-td:text-[#374151]
-            prose-table:border prose-table:border-[#E3E0D8]
-            prose-th:border prose-th:border-[#E3E0D8] prose-th:bg-[#F5F3EE] prose-th:px-3 prose-th:py-2
-            prose-td:border prose-td:border-[#E3E0D8] prose-td:px-3 prose-td:py-2"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-        {streaming && (
-          <span className="inline-block w-2 h-4 bg-[#D4622A] animate-pulse ml-1 align-middle rounded-sm" />
-        )}
+        <ContextMenuWrapper showCourse>
+          <div
+            id="task-doc-panel-content"
+            className="prose prose-sm max-w-none
+              prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+              prose-p:text-[#374151] prose-p:leading-relaxed
+              prose-strong:text-[#1A1A1A]
+              prose-li:text-[#374151]
+              prose-th:text-[#1A1A1A] prose-td:text-[#374151]
+              prose-table:border prose-table:border-[#E3E0D8]
+              prose-th:border prose-th:border-[#E3E0D8] prose-th:bg-[#F5F3EE] prose-th:px-3 prose-th:py-2
+              prose-td:border prose-td:border-[#E3E0D8] prose-td:px-3 prose-td:py-2"
+            dangerouslySetInnerHTML={{ __html: content }}
+          />
+          {streaming && (
+            <span className="inline-block w-2 h-4 bg-[#D4622A] animate-pulse ml-1 align-middle rounded-sm" />
+          )}
+        </ContextMenuWrapper>
       </div>
     </div>
   )

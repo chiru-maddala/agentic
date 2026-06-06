@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Metadata } from 'next'
 import PdfButton from './PdfButton'
+import ContextMenuWrapper from '@/components/ContextMenuWrapper'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -85,6 +86,7 @@ export default async function ShareReportPage({ params }: Props) {
 
       <main className="max-w-4xl mx-auto px-6 py-10">
         <p className="text-xs text-[#9CA3AF] mb-8">{formatted}</p>
+        <ContextMenuWrapper showCourse={false}>
         <div
           id="share-report-content"
           className="prose prose-sm max-w-none
@@ -100,6 +102,7 @@ export default async function ShareReportPage({ params }: Props) {
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.content}</ReactMarkdown>
         </div>
+        </ContextMenuWrapper>
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">
