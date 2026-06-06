@@ -47,12 +47,18 @@ Rules: 5-8 slides total. First slide type="title". Last slide type="summary". Ke
   let slides: unknown[]
   let title: string
   try {
-    const raw = message.content[0].type === 'text' ? message.content[0].text : '{}'
+    let raw = message.content[0].type === 'text' ? message.content[0].text : '{}'
+    // Strip markdown code fences if Claude wraps the JSON anyway
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
     const parsed = JSON.parse(raw)
     title = parsed.title
     slides = parsed.slides
-  } catch {
-    return Response.json({ error: 'Failed to parse course structure' }, { status: 500 })
+    if (!title || !Array.isArray(slides) || slides.length === 0) {
+      throw new Error('Invalid structure')
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return Response.json({ error: `Failed to parse course structure: ${msg}` }, { status: 500 })
   }
 
   const { data, error } = await supabase
