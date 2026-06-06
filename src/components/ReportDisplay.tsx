@@ -4,11 +4,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useEffect, useRef, useState } from 'react'
 
-type Props = {
-  content: string
-  streaming?: boolean
-}
-
 type MenuState = {
   x: number
   y: number
@@ -17,7 +12,13 @@ type MenuState = {
 
 type Toast = { message: string; ok: boolean } | null
 
-export default function ReportDisplay({ content, streaming }: Props) {
+type Props = {
+  content: string
+  streaming?: boolean
+  onCourseCreated?: () => void
+}
+
+export default function ReportDisplay({ content, streaming, onCourseCreated }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<MenuState>(null)
   const [toast, setToast] = useState<Toast>(null)
@@ -62,6 +63,27 @@ export default function ReportDisplay({ content, streaming }: Props) {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       showToast('Added to Tasks ✓', true)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed', false)
+    } finally {
+      setBusy(false)
+      setMenu(null)
+    }
+  }
+
+  const createCourse = async () => {
+    if (!menu || busy) return
+    setBusy(true)
+    try {
+      const res = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: menu.text }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      showToast('Course created — check Courses ✓', true)
+      onCourseCreated?.()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed', false)
     } finally {
@@ -129,6 +151,13 @@ export default function ReportDisplay({ content, streaming }: Props) {
             className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             <span>📝</span> Add to Notes
+          </button>
+          <button
+            onClick={createCourse}
+            disabled={busy}
+            className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
+          >
+            <span>🎓</span> Create Course
           </button>
         </div>
       )}

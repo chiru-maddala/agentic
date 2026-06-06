@@ -8,9 +8,10 @@ import ChatSection from '@/components/ChatSection'
 import TasksSection from '@/components/TasksSection'
 import NotesSection from '@/components/NotesSection'
 import DashboardSection from '@/components/DashboardSection'
+import CoursesSection from '@/components/CoursesSection'
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   reports: (
@@ -38,6 +39,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
     </svg>
   ),
+  courses: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -46,6 +52,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'tasks', label: 'Tasks' },
   { id: 'notes', label: 'Notes' },
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'courses', label: 'Courses' },
 ]
 
 export default function Home() {
@@ -312,7 +319,7 @@ export default function Home() {
                   </div>
                 )}
                 <div ref={reportRef}>
-                  <ReportDisplay content={content} streaming={streaming} />
+                  <ReportDisplay content={content} streaming={streaming} onCourseCreated={() => setTab('courses')} />
                 </div>
               </div>
             ) : (
@@ -331,6 +338,7 @@ export default function Home() {
         {tab === 'tasks' && <TasksSection />}
         {tab === 'notes' && <NotesSection />}
         {tab === 'dashboard' && <DashboardSection />}
+        {tab === 'courses' && <CoursesSection />}
       </main>
     </div>
   )

@@ -19,9 +19,13 @@ export async function PUT(
   const { id } = await ctx.params
   const body = await req.json()
 
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (body.title !== undefined) update.title = body.title
+  if (body.content !== undefined) update.content = body.content
+
   const { error } = await supabase
     .from('notes')
-    .update({ title: body.title, content: body.content, updated_at: new Date().toISOString() })
+    .update(update)
     .eq('id', id)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })

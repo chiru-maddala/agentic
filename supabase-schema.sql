@@ -27,3 +27,18 @@ create policy "users can read own profile" on user_profiles
 -- Users can insert their own profile on registration
 create policy "users can insert own profile" on user_profiles
   for insert with check (auth.uid() = id);
+
+-- Migration: add document_content to tasks
+alter table tasks add column if not exists document_content text;
+
+-- Courses table
+create table if not exists courses (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slides text not null,
+  slide_count integer not null default 0,
+  created_at timestamptz default now()
+);
+
+alter table courses enable row level security;
+create policy "allow all" on courses for all using (true) with check (true);
