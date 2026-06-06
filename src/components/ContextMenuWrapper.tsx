@@ -8,7 +8,7 @@ type Toast = { message: string; ok: boolean } | null
 type Props = {
   children: React.ReactNode
   onCourseCreated?: () => void
-  /** If false, "Create Course" is hidden (e.g. on unauthenticated public pages) */
+  /** If false, "Create Presentation" is hidden (e.g. on unauthenticated public pages) */
   showCourse?: boolean
 }
 
@@ -95,7 +95,7 @@ export default function ContextMenuWrapper({ children, onCourseCreated, showCour
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      showToast('Course created — check Courses ✓', true)
+      showToast('Presentation created — check Presentations ✓', true)
       onCourseCreated?.()
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed', false)
@@ -135,7 +135,7 @@ export default function ContextMenuWrapper({ children, onCourseCreated, showCour
               disabled={busy}
               className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
             >
-              <span>🎓</span> Create Course
+              <span>🎓</span> Create Presentation
             </button>
           )}
         </div>

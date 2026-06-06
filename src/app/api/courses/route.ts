@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
-    system: `You create concise, engaging short courses from source text. Output valid JSON only — no markdown fences, no commentary. The JSON must match this schema exactly:
+    system: `You create concise, engaging short presentations from source text. Output valid JSON only — no markdown fences, no commentary. The JSON must match this schema exactly:
 {
   "title": "string",
   "slides": [

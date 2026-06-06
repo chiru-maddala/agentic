@@ -14,17 +14,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "IntelliRadar — Intellina AI Daily Intelligence",
-  description: "Daily AI research reports, task intelligence, and courses for Intellina AI.",
+  description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
   openGraph: {
     title: "IntelliRadar — Intellina AI Daily Intelligence",
-    description: "Daily AI research reports, task intelligence, and courses for Intellina AI.",
+    description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
     siteName: "IntelliRadar · Intellina AI",
     type: "website",
   },
   twitter: {
     card: "summary",
     title: "IntelliRadar — Intellina AI Daily Intelligence",
-    description: "Daily AI research reports, task intelligence, and courses for Intellina AI.",
+    description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
   },
 };
 

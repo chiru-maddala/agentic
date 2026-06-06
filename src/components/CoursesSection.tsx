@@ -110,7 +110,7 @@ function CourseViewer({ course, onClose, onDelete }: { course: Course; onClose: 
           <span className="text-sm font-semibold text-[#1A1A1A] truncate mr-4">{course.title}</span>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
-              onClick={() => { if (window.confirm('Delete this course?')) onDelete() }}
+              onClick={() => { if (window.confirm('Delete this presentation?')) onDelete() }}
               className="text-xs text-[#9CA3AF] hover:text-red-500 px-2 py-1 rounded transition-colors"
             >Delete</button>
             <button onClick={onClose} className="text-[#9CA3AF] hover:text-[#1A1A1A] transition-colors p-1">
@@ -190,13 +190,13 @@ export default function CoursesSection() {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-semibold text-[#1A1A1A]">Courses</h1>
-            <p className="text-xs text-[#9CA3AF] mt-0.5">Select text in a daily report and choose &quot;Create Course&quot; to generate a course.</p>
+            <h1 className="text-xl font-semibold text-[#1A1A1A]">Presentations</h1>
+            <p className="text-xs text-[#9CA3AF] mt-0.5">Select text in a daily report and choose &quot;Create Presentation&quot; to generate a presentation.</p>
           </div>
           {loading && (
             <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
               <span className="w-4 h-4 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
-              Generating course…
+              Generating presentation…
             </div>
           )}
         </div>
@@ -204,9 +204,9 @@ export default function CoursesSection() {
         {courses.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🎓</div>
-            <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">No courses yet</h2>
+            <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">No presentations yet</h2>
             <p className="text-[#9CA3AF] text-sm max-w-xs mx-auto">
-              Right-click selected text in a Daily Report and choose &quot;Create Course&quot; to get started.
+              Right-click selected text in a Daily Report and choose &quot;Create Presentation&quot; to get started.
             </p>
           </div>
         ) : (

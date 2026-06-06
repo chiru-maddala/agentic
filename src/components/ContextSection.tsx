@@ -102,7 +102,7 @@ function ContextBlock({
         rows={18}
         spellCheck={false}
         className="w-full px-5 py-4 text-sm text-[#374151] bg-[#FAF9F6] font-mono leading-relaxed resize-none focus:outline-none focus:bg-white transition-colors"
-        placeholder={label === 'Others' ? 'Add any additional business context here — your clients, goals, products, team, or anything else Claude should know when completing tasks and generating courses…' : ''}
+        placeholder={label === 'Others' ? 'Add any additional business context here — your clients, goals, products, team, or anything else Claude should know when completing tasks and generating presentations…' : ''}
       />
     </div>
   )
@@ -169,7 +169,7 @@ export default function ContextSection() {
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
           <p className="text-xs text-amber-800 leading-relaxed">
-            <strong>Reports context</strong> is stored here for reference but is <strong>not yet connected</strong> to the report generator — you control when that switch is made. <strong>Others context</strong> is already injected into the Task Agent and Course generator.
+            <strong>Reports context</strong> is stored here for reference but is <strong>not yet connected</strong> to the report generator — you control when that switch is made. <strong>Others context</strong> is already injected into the Task Agent and Presentation generator.
           </p>
         </div>
 
@@ -185,7 +185,7 @@ export default function ContextSection() {
 
         <ContextBlock
           label="Others"
-          description="Additional business context injected into Task Agent completions and Course generation. Add anything Claude should know about your businesses, clients, or goals."
+          description="Additional business context injected into Task Agent completions and Presentation generation. Add anything Claude should know about your businesses, clients, or goals."
           value={othersCtx}
           onChange={setOthersCtx}
           saveState={othersSave}

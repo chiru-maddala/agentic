@@ -55,7 +55,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'tasks', label: 'Tasks' },
   { id: 'notes', label: 'Notes' },
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'courses', label: 'Courses' },
+  { id: 'courses', label: 'Presentations' },
 ]
 
 export default function Home() {
