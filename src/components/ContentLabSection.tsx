@@ -92,6 +92,7 @@ function RichEditor({ content, onChange }: { content: string; onChange: (html: s
 
 function ContentPanel({
   item,
+  loading,
   streaming,
   streamContent,
   onClose,
@@ -99,6 +100,7 @@ function ContentPanel({
   onSaved,
 }: {
   item: LabItem
+  loading: boolean
   streaming: boolean
   streamContent: string
   onClose: () => void
@@ -254,8 +256,15 @@ function ContentPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-hidden flex flex-col" id="content-lab-panel-body">
+        {/* Loading full item */}
+        {loading && (
+          <div className="flex-1 flex items-center justify-center">
+            <span className="w-5 h-5 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+
         {/* If no content yet — show settings */}
-        {!hasContent && !streaming && (
+        {!loading && !hasContent && !streaming && (
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
             <div>
               <p className="text-xs text-[#9CA3AF] mb-4 leading-relaxed">{item.concept}</p>
@@ -328,7 +337,7 @@ function ContentPanel({
         )}
 
         {/* Streaming view — rendered markdown */}
-        {streaming && (
+        {!loading && streaming && (
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <div className="prose prose-sm max-w-none prose-headings:text-[#1A1A1A] prose-headings:font-semibold prose-p:text-[#374151] prose-p:leading-relaxed prose-li:text-[#374151] prose-strong:text-[#1A1A1A]">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamContent}</ReactMarkdown>
@@ -338,7 +347,7 @@ function ContentPanel({
         )}
 
         {/* Rich text editor — shown when content exists and not streaming */}
-        {hasContent && !streaming && (
+        {!loading && hasContent && !streaming && (
           <RichEditor
             content={displayContent}
             onChange={setEditedContent}
@@ -356,6 +365,7 @@ export default function ContentLabSection() {
   const [items, setItems] = useState<LabItem[]>([])
   const [loading, setLoading] = useState(true)
   const [panelItem, setPanelItem] = useState<LabItem | null>(null)
+  const [panelLoading, setPanelLoading] = useState(false)
   const [streamingId, setStreamingId] = useState<string | null>(null)
   const [streamContent, setStreamContent] = useState('')
   const abortRef = useRef<AbortController | null>(null)
@@ -380,20 +390,21 @@ export default function ContentLabSection() {
   const closePanel = () => {
     abortRef.current?.abort()
     setPanelItem(null)
+    setPanelLoading(false)
     setStreamingId(null)
     setStreamContent('')
   }
 
   const openItem = async (item: LabItem) => {
-    setPanelItem(item)
     setStreamContent('')
     setStreamingId(null)
-    // Fetch full item (including generated_content which list query omits)
-    if (item.status === 'generated') {
-      const res = await fetch(`/api/content-lab/${item.id}`)
-      const full = await res.json()
-      if (!full.error) setPanelItem(full)
-    }
+    // Always fetch the full item — list query omits generated_content for performance
+    setPanelLoading(true)
+    setPanelItem(item) // open panel immediately with basic info
+    const res = await fetch(`/api/content-lab/${item.id}`)
+    const full = await res.json()
+    if (!full.error) setPanelItem(full)
+    setPanelLoading(false)
   }
 
   const generate = async (item: LabItem, opts: { wordCount?: number; keywords?: string[]; platform?: string }) => {
@@ -556,6 +567,7 @@ export default function ContentLabSection() {
         <div className="w-1/2 flex-shrink-0 h-full">
           <ContentPanel
             item={panelItem}
+            loading={panelLoading}
             streaming={streamingId === panelItem.id}
             streamContent={streamContent}
             onClose={closePanel}
