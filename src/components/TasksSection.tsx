@@ -33,13 +33,24 @@ function DocumentPanel({
   streaming,
   streamContent,
   onClose,
+  onRerun,
 }: {
   task: Task
   streaming: boolean
   streamContent: string
   onClose: () => void
+  onRerun: () => void
 }) {
+  const [copied, setCopied] = useState(false)
   const content = streaming ? streamContent : (task.document_content ?? streamContent)
+
+  const copyShareLink = () => {
+    const url = `${window.location.origin}/share/${task.id}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const downloadPDF = async () => {
     const { default: html2canvas } = await import('html2canvas')
@@ -76,19 +87,46 @@ function DocumentPanel({
           )}
           <span className="text-sm font-semibold text-[#1A1A1A] truncate">{task.title}</span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {!streaming && (
-            <button
-              onClick={downloadPDF}
-              className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#1A1A1A] bg-[#F5F3EE] border border-[#E3E0D8] px-2.5 py-1.5 rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              PDF
-            </button>
+            <>
+              <button
+                onClick={onRerun}
+                className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#D4622A] bg-[#F5F3EE] hover:bg-[#FEF3EC] border border-[#E3E0D8] hover:border-[#D4622A]/30 px-2.5 py-1.5 rounded-lg transition-colors"
+                title="Re-run agent"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+                </svg>
+                Re-Run
+              </button>
+              <button
+                onClick={copyShareLink}
+                className={`flex items-center gap-1.5 text-xs border px-2.5 py-1.5 rounded-lg transition-colors ${
+                  copied
+                    ? 'text-green-700 bg-green-50 border-green-200'
+                    : 'text-[#6B6B6B] hover:text-[#1A1A1A] bg-[#F5F3EE] border-[#E3E0D8]'
+                }`}
+                title="Copy shareable link"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                {copied ? 'Copied!' : 'Share'}
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#1A1A1A] bg-[#F5F3EE] border border-[#E3E0D8] px-2.5 py-1.5 rounded-lg transition-colors"
+                title="Download PDF"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                PDF
+              </button>
+            </>
           )}
-          <button onClick={onClose} className="text-[#9CA3AF] hover:text-[#1A1A1A] p-1 transition-colors">
+          <button onClick={onClose} className="text-[#9CA3AF] hover:text-[#1A1A1A] p-1 transition-colors ml-1">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -198,9 +236,9 @@ export default function TasksSection() {
     setStreamContent('')
   }
 
-  const runTask = async (task: Task) => {
-    // If already has document, just show it
-    if (task.document_content && streamingId !== task.id) {
+  const runTask = async (task: Task, forceRerun = false) => {
+    // If already has document and not forcing rerun, just show it
+    if (task.document_content && !forceRerun && streamingId !== task.id) {
       setPanelTask(task)
       setStreamContent('')
       setStreamingId(null)
@@ -487,6 +525,7 @@ export default function TasksSection() {
             streaming={streamingId === panelTask.id}
             streamContent={streamContent}
             onClose={closePanel}
+            onRerun={() => runTask(panelTask, true)}
           />
         </div>
       )}

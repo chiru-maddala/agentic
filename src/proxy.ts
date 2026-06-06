@@ -27,14 +27,15 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  const isPublicPage = pathname.startsWith('/login') || pathname.startsWith('/register')
+  const isPublicPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/share')
   const isAuthApi = pathname.startsWith('/api/auth')
+  const isShareApi = pathname.startsWith('/api/share')
   const isApi = pathname.startsWith('/api')
   const isPending = pathname === '/pending'
   const isAdmin = pathname.startsWith('/admin')
 
-  // Auth API routes are always public
-  if (isAuthApi) return supabaseResponse
+  // Auth API routes and share API are always public
+  if (isAuthApi || isShareApi) return supabaseResponse
 
   // Unauthenticated users can only access public pages
   if (!user) {
