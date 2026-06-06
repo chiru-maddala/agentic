@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 export async function POST(
   _req: Request,
@@ -36,7 +36,7 @@ export async function POST(
 
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 4000,
+          max_tokens: 16000,
           system: systemPrompt,
           messages: [
             {
