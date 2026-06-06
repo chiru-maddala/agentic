@@ -9,11 +9,13 @@ import TasksSection from '@/components/TasksSection'
 import NotesSection from '@/components/NotesSection'
 import DashboardSection from '@/components/DashboardSection'
 import CoursesSection from '@/components/CoursesSection'
+import ContentLabSection from '@/components/ContentLabSection'
+import ContentSuggestions from '@/components/ContentSuggestions'
 import ContextSection from '@/components/ContextSection'
 import UserManagementSection from '@/components/UserManagementSection'
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab'
 type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -47,6 +49,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
     </svg>
   ),
+  contentlab: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -56,6 +63,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'notes', label: 'Notes' },
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'courses', label: 'Presentations' },
+  { id: 'contentlab', label: 'Content Lab' },
 ]
 
 export default function Home() {
@@ -355,6 +363,12 @@ export default function Home() {
                 <div ref={reportRef}>
                   <ReportDisplay content={content} streaming={streaming} onCourseCreated={() => setTab('courses')} />
                 </div>
+                {selectedId && !streaming && (
+                  <ContentSuggestions
+                    reportId={selectedId}
+                    onNavigateToLab={() => setTab('contentlab')}
+                  />
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-8">
@@ -373,6 +387,7 @@ export default function Home() {
         {tab === 'notes' && <NotesSection />}
         {tab === 'dashboard' && <DashboardSection />}
         {tab === 'courses' && <CoursesSection />}
+        {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'settings' && (
           <div className="flex h-full">
             {/* Settings sub-nav */}

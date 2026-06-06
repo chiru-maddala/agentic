@@ -52,3 +52,20 @@ create table if not exists settings (
 
 alter table settings enable row level security;
 create policy "allow all" on settings for all using (true) with check (true);
+
+-- Content Lab table
+create table if not exists content_lab (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('article', 'social')),
+  title text not null,
+  concept text not null,
+  status text not null default 'pending' check (status in ('pending', 'generated')),
+  platform text,
+  word_count integer,
+  keywords text[] default '{}',
+  generated_content text,
+  created_at timestamptz default now()
+);
+
+alter table content_lab enable row level security;
+create policy "allow all" on content_lab for all using (true) with check (true);
