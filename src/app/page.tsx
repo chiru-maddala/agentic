@@ -70,6 +70,7 @@ export default function Home() {
   const [generating, setGenerating] = useState(false)
   const [historyKey, setHistoryKey] = useState(0)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [reportLinkCopied, setReportLinkCopied] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
   const ADMIN_EMAIL = 'chirans@gmail.com'
@@ -308,6 +309,26 @@ export default function Home() {
                           Today
                         </span>
                       )}
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/share/report/${selectedId}`
+                          navigator.clipboard.writeText(url).then(() => {
+                            setReportLinkCopied(true)
+                            setTimeout(() => setReportLinkCopied(false), 2000)
+                          })
+                        }}
+                        title="Copy shareable link"
+                        className={`flex items-center gap-1.5 text-xs border px-2.5 py-1.5 rounded-lg transition-colors ${
+                          reportLinkCopied
+                            ? 'text-green-700 bg-green-50 border-green-200'
+                            : 'text-[#6B6B6B] hover:text-[#1A1A1A] bg-white hover:bg-[#F5F3EE] border-[#E3E0D8]'
+                        }`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                        {reportLinkCopied ? 'Copied!' : 'Share'}
+                      </button>
                       <button
                         onClick={downloadPDF}
                         title="Download as PDF"

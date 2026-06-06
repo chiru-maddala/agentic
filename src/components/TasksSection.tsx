@@ -57,20 +57,31 @@ function DocumentPanel({
     const { default: jsPDF } = await import('jspdf')
     const el = document.getElementById('task-doc-panel-content')
     if (!el) return
-    const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' })
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-    const pageW = pdf.internal.pageSize.getWidth()
-    const pageH = pdf.internal.pageSize.getHeight()
-    const margin = 30
-    const imgW = pageW - margin * 2
-    const imgH = (canvas.height * imgW) / canvas.width
-    const contentH = pageH - margin * 2
-    const pages = Math.ceil(imgH / contentH)
-    for (let i = 0; i < pages; i++) {
-      if (i > 0) pdf.addPage()
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
+    // Clone offscreen so html2canvas captures the full content, not just the visible scroll area
+    const clone = el.cloneNode(true) as HTMLElement
+    clone.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:760px;padding:48px;background:white;color:#111827;font-family:Georgia,serif;font-size:14px;line-height:1.8;'
+    const style = document.createElement('style')
+    style.textContent = '*{color:#111827!important;background:transparent!important}h1,h2,h3,h4{color:#1f2937!important;margin-top:1em}table{border-collapse:collapse;width:100%}td,th{border:1px solid #e5e7eb!important;padding:6px 10px}th{background:#f9fafb!important}'
+    clone.appendChild(style)
+    document.body.appendChild(clone)
+    try {
+      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const margin = 30
+      const imgW = pageW - margin * 2
+      const imgH = (canvas.height * imgW) / canvas.width
+      const contentH = pageH - margin * 2
+      const pages = Math.ceil(imgH / contentH)
+      for (let i = 0; i < pages; i++) {
+        if (i > 0) pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
+      }
+      pdf.save(`${task.title.slice(0, 40)}.pdf`)
+    } finally {
+      document.body.removeChild(clone)
     }
-    pdf.save(`task-${task.id.slice(0, 8)}.pdf`)
   }
 
   return (
