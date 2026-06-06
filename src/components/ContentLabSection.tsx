@@ -571,6 +571,7 @@ export default function ContentLabSection() {
       {panelItem && (
         <div className="w-1/2 flex-shrink-0 h-full">
           <ContentPanel
+            key={panelItem.id}
             item={panelItem}
             loading={panelLoading}
             streaming={streamingId === panelItem.id}
