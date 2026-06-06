@@ -1,80 +1,69 @@
-'use client'
-
-import { use, useEffect, useRef, useState } from 'react'
+import { notFound } from 'next/navigation'
+import { getSupabase } from '@/lib/supabase'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { Metadata } from 'next'
+import PdfButton from './PdfButton'
 
-type Report = {
-  id: string
-  date: string
-  content: string
-  created_at: string
+type Props = { params: Promise<{ id: string }> }
+
+async function getReport(id: string) {
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('reports')
+    .select('id, date, content, created_at')
+    .eq('id', id)
+    .single()
+  return data
 }
 
-export default function ShareReportPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const [report, setReport] = useState<Report | null>(null)
-  const [notFound, setNotFound] = useState(false)
-  const contentRef = useRef<HTMLDivElement>(null)
+function stripMarkdown(md: string, maxLen = 200): string {
+  return md
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[>\-*_~]/g, '')
+    .replace(/\n+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, maxLen)
+}
 
-  useEffect(() => {
-    fetch(`/api/share/report/${id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) setNotFound(true)
-        else setReport(data)
-      })
-  }, [id])
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const report = await getReport(id)
+  if (!report) return { title: 'Report not found — IntelliRadar' }
 
-  const downloadPDF = async () => {
-    if (!contentRef.current) return
-    const { default: html2canvas } = await import('html2canvas')
-    const { default: jsPDF } = await import('jspdf')
-    const clone = contentRef.current.cloneNode(true) as HTMLElement
-    clone.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:800px;padding:48px;background:white;color:#111827;font-family:Georgia,serif;font-size:14px;line-height:1.8;'
-    const style = document.createElement('style')
-    style.textContent = '*{color:#111827!important;background:transparent!important}h1,h2,h3,h4{color:#1f2937!important;margin-top:1em}code,pre{background:#f3f4f6!important;color:#374151!important;padding:2px 4px;border-radius:3px}a{color:#D4622A!important}'
-    clone.appendChild(style)
-    document.body.appendChild(clone)
-    try {
-      const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-      const pageW = pdf.internal.pageSize.getWidth()
-      const pageH = pdf.internal.pageSize.getHeight()
-      const margin = 30
-      const imgW = pageW - margin * 2
-      const imgH = (canvas.height * imgW) / canvas.width
-      const contentH = pageH - margin * 2
-      const pages = Math.ceil(imgH / contentH)
-      for (let i = 0; i < pages; i++) {
-        if (i > 0) pdf.addPage()
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
-      }
-      pdf.save(`IntelliRadar-${report?.date ?? id}.pdf`)
-    } finally {
-      document.body.removeChild(clone)
-    }
+  const date = new Date(report.created_at).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
+  const description = stripMarkdown(report.content)
+  const title = `IntelliRadar Daily Report — ${date}`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      siteName: 'IntelliRadar · Intellina AI',
+      publishedTime: report.created_at,
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
   }
+}
 
-  if (notFound) {
-    return (
-      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-2xl mb-2">🔍</p>
-          <h1 className="text-lg font-semibold text-[#1A1A1A] mb-1">Report not found</h1>
-          <p className="text-sm text-[#9CA3AF]">This report may not exist or has been deleted.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!report) {
-    return (
-      <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
-        <span className="w-5 h-5 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+export default async function ShareReportPage({ params }: Props) {
+  const { id } = await params
+  const report = await getReport(id)
+  if (!report) notFound()
 
   const formatted = new Date(report.created_at).toLocaleString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -83,7 +72,6 @@ export default function ShareReportPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="min-h-screen bg-[#FAF9F6]">
-      {/* Header */}
       <header className="bg-white border-b border-[#E3E0D8] sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -91,23 +79,14 @@ export default function ShareReportPage({ params }: { params: Promise<{ id: stri
             <span className="text-[#E3E0D8]">·</span>
             <span className="text-sm text-[#6B6B6B]">Daily Intelligence Report</span>
           </div>
-          <button
-            onClick={downloadPDF}
-            className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#1A1A1A] bg-[#F5F3EE] hover:bg-[#ECEAE3] border border-[#E3E0D8] px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            Download PDF
-          </button>
+          <PdfButton date={report.date} />
         </div>
       </header>
 
-      {/* Report */}
       <main className="max-w-4xl mx-auto px-6 py-10">
         <p className="text-xs text-[#9CA3AF] mb-8">{formatted}</p>
         <div
-          ref={contentRef}
+          id="share-report-content"
           className="prose prose-sm max-w-none
             prose-headings:text-[#1A1A1A] prose-headings:font-semibold
             prose-p:text-[#374151] prose-p:leading-relaxed
