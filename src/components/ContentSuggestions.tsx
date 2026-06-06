@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type Suggestion = { title: string; concept: string }
 type Suggestions = { blog_posts: Suggestion[]; social_posts: Suggestion[] }
 
 function AddedToast({ message }: { message: string }) {
   return (
-    <div className="fixed bottom-6 right-6 z-50 bg-[#1A1A1A] text-white text-sm px-4 py-2.5 rounded-xl shadow-lg animate-fade-in">
+    <div className="fixed bottom-6 right-6 z-50 bg-[#1A1A1A] text-white text-sm px-4 py-2.5 rounded-xl shadow-lg">
       {message}
     </div>
   )
@@ -21,7 +21,8 @@ export default function ContentSuggestions({
   onNavigateToLab: () => void
 }) {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [added, setAdded] = useState<Record<string, boolean>>({})
   const [toast, setToast] = useState<string | null>(null)
 
@@ -30,17 +31,31 @@ export default function ContentSuggestions({
     setTimeout(() => setToast(null), 2500)
   }
 
-  const generate = async () => {
+  // Load saved suggestions for this report on mount
+  useEffect(() => {
     setLoading(true)
+    setSuggestions(null)
+    setAdded({})
+    fetch(`/api/reports/${reportId}/suggestions`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.blog_posts) setSuggestions(data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [reportId])
+
+  const generate = async () => {
+    setGenerating(true)
     try {
       const res = await fetch(`/api/reports/${reportId}/suggestions`, { method: 'POST' })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setSuggestions(data)
-    } catch (e) {
+    } catch {
       showToast('Failed to generate suggestions')
     } finally {
-      setLoading(false)
+      setGenerating(false)
     }
   }
 
@@ -65,35 +80,35 @@ export default function ContentSuggestions({
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-base font-semibold text-[#1A1A1A]">🧪 Content Lab Suggestions</h2>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">AI-generated content ideas based on today&apos;s signals</p>
+          <p className="text-xs text-[#9CA3AF] mt-0.5">AI-generated content ideas based on this report&apos;s signals</p>
         </div>
         <div className="flex items-center gap-2">
           {suggestions && (
-            <button
-              onClick={onNavigateToLab}
-              className="text-xs text-[#D4622A] hover:underline"
-            >
+            <button onClick={onNavigateToLab} className="text-xs text-[#D4622A] hover:underline">
               Open Content Lab →
             </button>
           )}
           <button
             onClick={generate}
-            disabled={loading}
+            disabled={generating || loading}
             className="flex items-center gap-1.5 text-xs bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
           >
-            {loading ? (
-              <>
-                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Generating…
-              </>
-            ) : (
-              suggestions ? 'Regenerate' : '✦ Generate Ideas'
-            )}
+            {generating ? (
+              <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
+            ) : suggestions ? 'Regenerate' : '✦ Generate Ideas'}
           </button>
         </div>
       </div>
 
-      {suggestions && (
+      {/* Loading saved suggestions */}
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-[#9CA3AF] py-4">
+          <span className="w-3 h-3 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+          Loading suggestions…
+        </div>
+      )}
+
+      {!loading && suggestions && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Blog Posts */}
           <div>
@@ -102,10 +117,7 @@ export default function ContentSuggestions({
               {suggestions.blog_posts.map((item, i) => {
                 const key = `article-${item.title}`
                 return (
-                  <div
-                    key={i}
-                    className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3"
-                  >
+                  <div key={i} className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{item.title}</p>
                       <p className="text-xs text-[#9CA3AF] mt-1 leading-relaxed">{item.concept}</p>
@@ -134,10 +146,7 @@ export default function ContentSuggestions({
               {suggestions.social_posts.map((item, i) => {
                 const key = `social-${item.title}`
                 return (
-                  <div
-                    key={i}
-                    className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3"
-                  >
+                  <div key={i} className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{item.title}</p>
                       <p className="text-xs text-[#9CA3AF] mt-1 leading-relaxed">{item.concept}</p>

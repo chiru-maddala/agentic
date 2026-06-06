@@ -3,11 +3,24 @@ import { getSupabase } from '@/lib/supabase'
 
 export const maxDuration = 120
 
+// GET — return saved suggestions for this report
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('report_suggestions')
+    .select('blog_posts, social_posts')
+    .eq('report_id', id)
+    .single()
+  if (!data) return Response.json(null)
+  return Response.json(data)
+}
+
+// POST — generate fresh suggestions and save to DB
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const supabase = getSupabase()
 
-  // Fetch the report
   const { data: report, error } = await supabase
     .from('reports')
     .select('content')
@@ -15,7 +28,6 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     .single()
   if (error || !report) return Response.json({ error: 'Report not found' }, { status: 404 })
 
-  // Fetch business context
   const { data: settings } = await supabase
     .from('settings')
     .select('key, value')
@@ -49,6 +61,15 @@ Rules: 3-5 blog post ideas, 3-5 social post ideas. Tie each idea to market signa
   raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
   try {
     const parsed = JSON.parse(raw)
+
+    // Persist — upsert so regenerate overwrites previous
+    await supabase
+      .from('report_suggestions')
+      .upsert(
+        { report_id: id, blog_posts: parsed.blog_posts, social_posts: parsed.social_posts },
+        { onConflict: 'report_id' }
+      )
+
     return Response.json(parsed)
   } catch {
     return Response.json({ error: 'Failed to parse suggestions' }, { status: 500 })

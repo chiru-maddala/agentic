@@ -69,3 +69,15 @@ create table if not exists content_lab (
 
 alter table content_lab enable row level security;
 create policy "allow all" on content_lab for all using (true) with check (true);
+
+-- Report suggestions table (persists Content Lab suggestions per report)
+create table if not exists report_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  report_id uuid not null unique references reports(id) on delete cascade,
+  blog_posts jsonb not null default '[]',
+  social_posts jsonb not null default '[]',
+  created_at timestamptz default now()
+);
+
+alter table report_suggestions enable row level security;
+create policy "allow all" on report_suggestions for all using (true) with check (true);

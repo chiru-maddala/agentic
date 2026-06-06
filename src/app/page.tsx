@@ -365,6 +365,7 @@ export default function Home() {
                 </div>
                 {selectedId && !streaming && (
                   <ContentSuggestions
+                    key={selectedId}
                     reportId={selectedId}
                     onNavigateToLab={() => setTab('contentlab')}
                   />
