@@ -17,7 +17,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const supabase = getSupabase()
   const body = await req.json()
   // Only allow updating these fields
-  const allowed = ['word_count', 'keywords', 'platform']
+  const allowed = ['word_count', 'keywords', 'platform', 'generated_content', 'status']
   const update: Record<string, unknown> = {}
   for (const k of allowed) {
     if (k in body) update[k] = body[k]
