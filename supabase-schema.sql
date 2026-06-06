@@ -42,3 +42,13 @@ create table if not exists courses (
 
 alter table courses enable row level security;
 create policy "allow all" on courses for all using (true) with check (true);
+
+-- Settings table (key-value store for context and config)
+create table if not exists settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz default now()
+);
+
+alter table settings enable row level security;
+create policy "allow all" on settings for all using (true) with check (true);

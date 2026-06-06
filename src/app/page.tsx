@@ -9,9 +9,10 @@ import TasksSection from '@/components/TasksSection'
 import NotesSection from '@/components/NotesSection'
 import DashboardSection from '@/components/DashboardSection'
 import CoursesSection from '@/components/CoursesSection'
+import ContextSection from '@/components/ContextSection'
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'context'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   reports: (
@@ -44,6 +45,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
     </svg>
   ),
+  context: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -53,6 +59,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'notes', label: 'Notes' },
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'courses', label: 'Courses' },
+  { id: 'context', label: 'Context' },
 ]
 
 export default function Home() {
@@ -339,6 +346,7 @@ export default function Home() {
         {tab === 'notes' && <NotesSection />}
         {tab === 'dashboard' && <DashboardSection />}
         {tab === 'courses' && <CoursesSection />}
+        {tab === 'context' && <ContextSection />}
       </main>
     </div>
   )
