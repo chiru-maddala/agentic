@@ -10,9 +10,11 @@ import NotesSection from '@/components/NotesSection'
 import DashboardSection from '@/components/DashboardSection'
 import CoursesSection from '@/components/CoursesSection'
 import ContextSection from '@/components/ContextSection'
+import UserManagementSection from '@/components/UserManagementSection'
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'context'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses'
+type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   reports: (
@@ -45,11 +47,6 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
     </svg>
   ),
-  context: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-    </svg>
-  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -59,12 +56,12 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'notes', label: 'Notes' },
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'courses', label: 'Courses' },
-  { id: 'context', label: 'Context' },
 ]
 
 export default function Home() {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('reports')
+  const [tab, setTab] = useState<Tab | 'settings'>('reports')
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('context')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
@@ -205,14 +202,14 @@ export default function Home() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(t.id as Tab)}
               className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] transition-all ${
                 tab === t.id
                   ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
                   : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
               }`}
             >
-              <span className="flex-shrink-0">{TAB_ICONS[t.id]}</span>
+              <span className="flex-shrink-0">{TAB_ICONS[t.id as Tab]}</span>
               <span>{t.label}</span>
             </button>
           ))}
@@ -252,19 +249,28 @@ export default function Home() {
 
         {/* Footer */}
         <div className="border-t border-[#E3E0D8] p-3 space-y-1">
-          {userEmail === ADMIN_EMAIL && (
-            <button
-              onClick={() => router.push('/admin')}
-              className="w-full text-left text-xs text-[#6B6B6B] hover:text-[#1A1A1A] px-2 py-1.5 rounded transition-colors"
-            >
-              User Management
-            </button>
-          )}
+          {/* Settings */}
+          <button
+            onClick={() => setTab('settings')}
+            className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] transition-all ${
+              tab === 'settings'
+                ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
+                : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+            <span>Settings</span>
+          </button>
           <button
             onClick={handleLogout}
-            className="w-full text-left text-xs text-[#9CA3AF] hover:text-[#6B6B6B] px-2 py-1.5 rounded transition-colors"
+            className="w-full text-left flex items-center gap-3 px-3 py-2 text-[15px] text-[#9CA3AF] hover:text-[#6B6B6B] hover:bg-[#ECEAE3] rounded-xl transition-all"
           >
-            Sign out
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>Sign out</span>
           </button>
         </div>
       </aside>
@@ -346,7 +352,47 @@ export default function Home() {
         {tab === 'notes' && <NotesSection />}
         {tab === 'dashboard' && <DashboardSection />}
         {tab === 'courses' && <CoursesSection />}
-        {tab === 'context' && <ContextSection />}
+        {tab === 'settings' && (
+          <div className="flex h-full">
+            {/* Settings sub-nav */}
+            <aside className="w-48 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col p-3 gap-1">
+              <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-1.5">Settings</p>
+              <button
+                onClick={() => setSettingsTab('context')}
+                className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                  settingsTab === 'context'
+                    ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
+                    : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                Context
+              </button>
+              {userEmail === ADMIN_EMAIL && (
+                <button
+                  onClick={() => setSettingsTab('users')}
+                  className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                    settingsTab === 'users'
+                      ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
+                      : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
+                  }`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  User Management
+                </button>
+              )}
+            </aside>
+            {/* Settings content */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {settingsTab === 'context' && <ContextSection />}
+              {settingsTab === 'users' && userEmail === ADMIN_EMAIL && <UserManagementSection />}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
