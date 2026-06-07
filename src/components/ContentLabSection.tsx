@@ -441,8 +441,8 @@ function ContentPanel({
           </div>
         )}
 
-        {/* Rich text editor — shown when content exists and not streaming */}
-        {!loading && hasContent && !streaming && (
+        {/* Rich text editor — shown when content exists, not streaming, and form is not open */}
+        {!loading && hasContent && !streaming && !showRegenerateForm && (
           <RichEditor
             content={displayContent}
             onChange={setEditedContent}
