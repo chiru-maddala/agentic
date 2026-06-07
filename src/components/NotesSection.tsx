@@ -131,6 +131,7 @@ export default function NotesSection() {
   const [notes, setNotes] = useState<NoteMeta[]>([])
   const [active, setActive] = useState<Note | null>(null)
   const [title, setTitle] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
   const titleRef = useRef('')
   titleRef.current = title
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -185,6 +186,13 @@ export default function NotesSection() {
         }).then(() => loadNotes())
       }, 1000)
     }
+  }
+
+  const copyLink = () => {
+    if (!active) return
+    navigator.clipboard.writeText(`${window.location.origin}/share/note/${active.id}`)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   const deleteNote = async () => {
@@ -256,6 +264,16 @@ export default function NotesSection() {
                 placeholder="Note title"
                 className="flex-1 bg-transparent text-2xl font-bold text-[#1A1A1A] placeholder-[#C4BFB5] focus:outline-none"
               />
+              <button
+                onClick={copyLink}
+                className={`text-xs px-2 py-1 rounded border transition-colors flex-shrink-0 ${
+                  linkCopied
+                    ? 'text-green-700 bg-green-50 border-green-200'
+                    : 'text-[#6B6B6B] bg-[#F5F3EE] border-[#E3E0D8] hover:text-[#1A1A1A]'
+                }`}
+              >
+                {linkCopied ? 'Copied!' : 'Share'}
+              </button>
               <button
                 onClick={deleteNote}
                 className="text-xs text-[#9CA3AF] hover:text-red-500 transition-colors px-2 py-1 flex-shrink-0"
