@@ -469,9 +469,9 @@ export default function ContentLabSection() {
   const current = subTab === 'articles' ? articles : socialPosts
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden">
       {/* ── Left: item list ── */}
-      <div className={`flex flex-col overflow-hidden bg-[#FAF9F6] transition-all duration-300 ${panelItem ? 'w-1/2' : 'w-full'}`}>
+      <div className={`flex flex-col overflow-hidden bg-[#FAF9F6] transition-all duration-300 ${panelItem ? 'hidden md:flex md:w-1/2' : 'flex w-full'}`}>
         {/* Sub-tab bar */}
         <div className="border-b border-[#E3E0D8] bg-[#F5F3EE] px-4 py-2.5 flex items-center gap-3 flex-shrink-0">
           {([['articles', '📝 Articles'], ['social', '📣 Social Posts']] as [SubTab, string][]).map(([id, label]) => (
@@ -569,17 +569,31 @@ export default function ContentLabSection() {
 
       {/* ── Right: content panel ── */}
       {panelItem && (
-        <div className="w-1/2 flex-shrink-0 h-full">
-          <ContentPanel
-            key={panelItem.id}
-            item={panelItem}
-            loading={panelLoading}
-            streaming={streamingId === panelItem.id}
-            streamContent={streamContent}
-            onClose={closePanel}
-            onRegenerate={(opts) => generate(panelItem, opts)}
-            onSaved={load}
-          />
+        <div className="flex flex-col w-full md:w-1/2 flex-shrink-0 h-full">
+          {/* Mobile back button */}
+          <div className="md:hidden flex items-center px-4 py-2 bg-[#F5F3EE] border-b border-[#E3E0D8] flex-shrink-0">
+            <button
+              onClick={closePanel}
+              className="flex items-center gap-1.5 text-sm text-[#6B6B6B] hover:text-[#1A1A1A]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+              Back
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <ContentPanel
+              key={panelItem.id}
+              item={panelItem}
+              loading={panelLoading}
+              streaming={streamingId === panelItem.id}
+              streamContent={streamContent}
+              onClose={closePanel}
+              onRegenerate={(opts) => generate(panelItem, opts)}
+              onSaved={load}
+            />
+          </div>
         </div>
       )}
     </div>

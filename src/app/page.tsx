@@ -79,6 +79,7 @@ export default function Home() {
   const [historyKey, setHistoryKey] = useState(0)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [reportLinkCopied, setReportLinkCopied] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
 
   const ADMIN_EMAIL = 'chirans@gmail.com'
@@ -194,10 +195,28 @@ export default function Home() {
   const today = new Date().toISOString().split('T')[0]
   const isToday = selectedDate === today
 
+  const handleTabChange = (newTab: Tab | 'settings') => {
+    setTab(newTab)
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="flex h-screen bg-[#FAF9F6] text-[#1A1A1A] overflow-hidden">
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col">
+      <aside className={`
+        fixed inset-y-0 left-0 z-30 w-72 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col
+        transform transition-transform duration-200 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:w-64 md:translate-x-0 md:z-auto md:transition-none
+      `}>
         {/* Brand */}
         <div className="p-4 border-b border-[#E3E0D8]">
           <div className="flex items-center gap-2 mb-0.5">
@@ -211,7 +230,7 @@ export default function Home() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id as Tab)}
+              onClick={() => handleTabChange(t.id as Tab)}
               className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] transition-all ${
                 tab === t.id
                   ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
@@ -260,7 +279,7 @@ export default function Home() {
         <div className="border-t border-[#E3E0D8] p-3 space-y-1">
           {/* Settings */}
           <button
-            onClick={() => setTab('settings')}
+            onClick={() => handleTabChange('settings')}
             className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] transition-all ${
               tab === 'settings'
                 ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
@@ -286,12 +305,26 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile top header */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#F5F3EE] border-b border-[#E3E0D8] flex-shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]"
+            aria-label="Open menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <span className="text-base font-bold text-[#D4622A]">IntelliRadar</span>
+          <div className="w-8" />
+        </div>
         {tab === 'reports' && (
           <div className="flex-1 overflow-y-auto">
             {content ? (
-              <div className="max-w-4xl mx-auto px-8 py-10">
+              <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10">
                 {selectedDate && !streaming && (
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-wrap items-center gap-2 justify-between mb-6">
                     <span className="text-xs text-[#9CA3AF]">
                       {selectedCreatedAt
                         ? new Date(selectedCreatedAt).toLocaleString('en-US', {
@@ -311,7 +344,7 @@ export default function Home() {
                             timeZone: 'UTC',
                           })}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {isToday && (
                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] px-2 py-1 rounded-full border border-[#F5D3BC]">
                           Today
@@ -372,7 +405,7 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center px-8">
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <div className="text-5xl mb-4">&#128225;</div>
                 <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2">No report yet</h2>
                 <p className="text-[#9CA3AF] text-sm max-w-xs">
@@ -390,10 +423,10 @@ export default function Home() {
         {tab === 'courses' && <CoursesSection />}
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'settings' && (
-          <div className="flex h-full">
+          <div className="flex flex-col md:flex-row h-full">
             {/* Settings sub-nav */}
-            <aside className="w-48 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col p-3 gap-1">
-              <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-1.5">Settings</p>
+            <aside className="w-full md:w-48 flex-shrink-0 bg-[#F5F3EE] border-b md:border-b-0 md:border-r border-[#E3E0D8] flex flex-row md:flex-col p-3 gap-1 overflow-x-auto">
+              <p className="hidden md:block text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider px-2 py-1.5">Settings</p>
               <button
                 onClick={() => setSettingsTab('context')}
                 className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
