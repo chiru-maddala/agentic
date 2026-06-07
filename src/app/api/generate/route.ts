@@ -78,12 +78,6 @@ export async function POST() {
               }
             }
 
-            // Fire-and-forget knowledge graph extraction
-            fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/api/graph/extract`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ reportId: report.id, content: fullContent }),
-            }).catch(() => {}) // non-blocking
           }
         }
       } catch (err) {
