@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import ReportHistory from '@/components/ReportHistory'
-import ReportDisplay from '@/components/ReportDisplay'
-import ChatSection from '@/components/ChatSection'
-import TasksSection from '@/components/TasksSection'
-import NotesSection from '@/components/NotesSection'
-import DashboardSection from '@/components/DashboardSection'
-import CoursesSection from '@/components/CoursesSection'
-import ContentLabSection from '@/components/ContentLabSection'
-import ContentSuggestions from '@/components/ContentSuggestions'
-import ContextSection from '@/components/ContextSection'
-import UserManagementSection from '@/components/UserManagementSection'
-import KnowledgeGraphSection from '@/components/KnowledgeGraphSection'
+import dynamic from 'next/dynamic'
+
+const ReportHistory = dynamic(() => import('@/components/ReportHistory'), { ssr: false })
+const ReportDisplay = dynamic(() => import('@/components/ReportDisplay'), { ssr: false })
+const ChatSection = dynamic(() => import('@/components/ChatSection'), { ssr: false })
+const TasksSection = dynamic(() => import('@/components/TasksSection'), { ssr: false })
+const NotesSection = dynamic(() => import('@/components/NotesSection'), { ssr: false })
+const DashboardSection = dynamic(() => import('@/components/DashboardSection'), { ssr: false })
+const CoursesSection = dynamic(() => import('@/components/CoursesSection'), { ssr: false })
+const ContentLabSection = dynamic(() => import('@/components/ContentLabSection'), { ssr: false })
+const ContentSuggestions = dynamic(() => import('@/components/ContentSuggestions'), { ssr: false })
+const ContextSection = dynamic(() => import('@/components/ContextSection'), { ssr: false })
+const UserManagementSection = dynamic(() => import('@/components/UserManagementSection'), { ssr: false })
+const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
 type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph'
