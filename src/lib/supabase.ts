@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 export type Report = {
   id: string
@@ -7,7 +7,8 @@ export type Report = {
   created_at: string
 }
 
-let client: ReturnType<typeof createClient> | null = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let client: SupabaseClient<any> | null = null
 
 export function getSupabase() {
   if (!client) {
