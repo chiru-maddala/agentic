@@ -118,6 +118,7 @@ function ContentPanel({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [showRegenerateForm, setShowRegenerateForm] = useState(false)
 
   const hasContent = !!(item.generated_content || streamContent)
   const displayContent = streaming ? streamContent : (editedContent || item.generated_content || '')
@@ -128,6 +129,11 @@ function ContentPanel({
       setEditedContent(item.generated_content)
     }
   }, [item.generated_content])
+
+  // When streaming starts, hide the regenerate form
+  useEffect(() => {
+    if (streaming) setShowRegenerateForm(false)
+  }, [streaming])
 
   // When stream finishes, set editor content
   useEffect(() => {
@@ -216,8 +222,12 @@ function ContentPanel({
                 {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save'}
               </button>
               <button
-                onClick={() => onRegenerate(item.type === 'article' ? { wordCount, keywords } : { platform })}
-                className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#D4622A] bg-[#F5F3EE] hover:bg-[#FEF3EC] border border-[#E3E0D8] hover:border-[#D4622A]/30 px-2.5 py-1.5 rounded-lg transition-colors"
+                onClick={() => setShowRegenerateForm((v) => !v)}
+                className={`flex items-center gap-1.5 text-xs border px-2.5 py-1.5 rounded-lg transition-colors ${
+                  showRegenerateForm
+                    ? 'bg-[#FEF3EC] text-[#D4622A] border-[#F5D3BC]'
+                    : 'text-[#6B6B6B] hover:text-[#D4622A] bg-[#F5F3EE] hover:bg-[#FEF3EC] border-[#E3E0D8] hover:border-[#D4622A]/30'
+                }`}
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
@@ -260,6 +270,91 @@ function ContentPanel({
         {loading && (
           <div className="flex-1 flex items-center justify-center">
             <span className="w-5 h-5 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+
+        {/* Re-generate settings form (shown when toggled on existing content) */}
+        {!loading && hasContent && !streaming && showRegenerateForm && (
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 border-b border-[#E3E0D8]">
+            <div>
+              <p className="text-xs font-semibold text-[#1A1A1A] mb-1">Regenerate Settings</p>
+              <p className="text-xs text-[#9CA3AF] leading-relaxed">{item.concept}</p>
+            </div>
+
+            {item.type === 'article' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-[#374151] mb-2">Number of Words</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range" min={300} max={2000} step={100} value={wordCount}
+                      onChange={(e) => setWordCount(Number(e.target.value))}
+                      className="flex-1 accent-[#D4622A]"
+                    />
+                    <span className="text-sm font-medium text-[#1A1A1A] w-20 text-right">{wordCount} words</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#374151] mb-2">Preferred Keywords</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {keywords.map((kw) => (
+                      <span key={kw} className="flex items-center gap-1 text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-1 rounded-full">
+                        {kw}
+                        <button onClick={() => removeKw(kw)} className="hover:text-red-500 ml-0.5 leading-none">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={kwInput}
+                      onChange={(e) => setKwInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKw() } }}
+                      placeholder="Add keyword…"
+                      className="flex-1 text-sm border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A] bg-[#FAF9F6]"
+                    />
+                    <button onClick={addKw} className="text-xs bg-[#F5F3EE] border border-[#E3E0D8] px-3 py-1.5 rounded-lg hover:bg-[#ECEAE3]">Add</button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {item.type === 'social' && (
+              <div>
+                <label className="block text-xs font-semibold text-[#374151] mb-3">Select Platform</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {PLATFORMS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPlatform(p)}
+                      className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${
+                        platform === p ? 'border-[#D4622A] bg-[#FEF3EC]' : 'border-[#E3E0D8] hover:border-[#D4622A]/40'
+                      }`}
+                    >
+                      <span className="text-2xl">{PLATFORM_ICONS[p]}</span>
+                      <span className="text-xs font-medium text-[#374151]">{p}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRegenerateForm(false)
+                  onRegenerate(item.type === 'article' ? { wordCount, keywords } : { platform })
+                }}
+                className="flex-1 bg-[#D4622A] hover:bg-[#C05520] text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
+              >
+                Regenerate
+              </button>
+              <button
+                onClick={() => setShowRegenerateForm(false)}
+                className="px-4 text-sm text-[#6B6B6B] hover:text-[#1A1A1A] border border-[#E3E0D8] rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
