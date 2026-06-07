@@ -13,9 +13,10 @@ import ContentLabSection from '@/components/ContentLabSection'
 import ContentSuggestions from '@/components/ContentSuggestions'
 import ContextSection from '@/components/ContextSection'
 import UserManagementSection from '@/components/UserManagementSection'
+import KnowledgeGraphSection from '@/components/KnowledgeGraphSection'
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph'
 type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -54,6 +55,12 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
     </svg>
   ),
+  graph: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="12" cy="8" r="2"/>
+      <line x1="7" y1="12" x2="17" y2="6"/><line x1="7" y1="12" x2="17" y2="18"/><line x1="14" y1="8" x2="17" y2="6"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -64,6 +71,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'courses', label: 'Presentations' },
   { id: 'contentlab', label: 'Content Lab' },
+  { id: 'graph', label: 'Knowledge Graph' },
 ]
 
 export default function Home() {
@@ -422,6 +430,7 @@ export default function Home() {
         {tab === 'dashboard' && <DashboardSection />}
         {tab === 'courses' && <CoursesSection />}
         {tab === 'contentlab' && <ContentLabSection />}
+        {tab === 'graph' && <KnowledgeGraphSection />}
         {tab === 'settings' && (
           <div className="flex flex-col md:flex-row h-full">
             {/* Settings sub-nav */}
