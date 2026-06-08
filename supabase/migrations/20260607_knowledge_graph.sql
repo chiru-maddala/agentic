@@ -34,11 +34,20 @@ create index if not exists graph_edges_target_idx on graph_edges(target_id);
 create index if not exists report_nodes_report_idx on report_nodes(report_id);
 create index if not exists report_nodes_node_idx on report_nodes(node_id);
 
--- RLS: allow all authenticated users to read; only service role writes
+-- RLS
 alter table graph_nodes enable row level security;
 alter table graph_edges enable row level security;
 alter table report_nodes enable row level security;
 
-create policy "graph_nodes_read" on graph_nodes for select using (auth.role() = 'authenticated');
-create policy "graph_edges_read" on graph_edges for select using (auth.role() = 'authenticated');
-create policy "report_nodes_read" on report_nodes for select using (auth.role() = 'authenticated');
+drop policy if exists "graph_nodes_read" on graph_nodes;
+drop policy if exists "graph_edges_read" on graph_edges;
+drop policy if exists "report_nodes_read" on report_nodes;
+
+create policy "graph_nodes_read" on graph_nodes
+  for select to authenticated using (true);
+
+create policy "graph_edges_read" on graph_edges
+  for select to authenticated using (true);
+
+create policy "report_nodes_read" on report_nodes
+  for select to authenticated using (true);
