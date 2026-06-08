@@ -1,17 +1,41 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
-import { fetchRecentTweets } from '@/lib/twitter'
+import { generateSearchQueries, fetchRecentTweets } from '@/lib/twitter'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 
 export const maxDuration = 300
+
+async function fetchCoveredTopics(): Promise<string> {
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('reports')
+    .select('content')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  if (!data || data.length === 0) return ''
+
+  // Extract the Priority Actions and section headers from each report as a compact coverage summary
+  return data
+    .map((r, i) => {
+      const content: string = r.content ?? ''
+      const headings = [...content.matchAll(/^#{1,3} .+/gm)].map((m) => m[0]).join(', ')
+      const actions = content.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)?.[0]?.slice(0, 400) ?? ''
+      return `Report ${i + 1}: ${headings}\n${actions}`
+    })
+    .join('\n\n')
+}
 
 export async function POST() {
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
+  const coveredTopics = await fetchCoveredTopics().catch(() => '')
+
   let tweets: string
   try {
-    tweets = await fetchRecentTweets()
+    const queries = await generateSearchQueries(coveredTopics).catch(() => null)
+    tweets = await fetchRecentTweets(queries ?? undefined)
   } catch {
     tweets = 'Live Twitter data unavailable. Generating from current AI landscape knowledge.'
   }
@@ -28,7 +52,7 @@ export async function POST() {
           max_tokens: 8000,
           system: buildSystemPrompt(),
           messages: [
-            { role: 'user', content: buildUserPrompt(tweets, today) },
+            { role: 'user', content: buildUserPrompt(tweets, today, coveredTopics || undefined) },
           ],
         })
 

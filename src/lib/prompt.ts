@@ -47,14 +47,18 @@ Then produce a structured Daily Intelligence Report with these sections:
 6. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy.`
 }
 
-export function buildUserPrompt(tweets: string, date: string): string {
-  return `Today is ${date}.
+export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string): string {
+  const coverageSection = coveredTopics
+    ? `\n--- TOPICS COVERED IN RECENT REPORTS (avoid repeating these angles) ---\n${coveredTopics}\n--- END RECENT COVERAGE ---\n`
+    : ''
 
+  return `Today is ${date}.
+${coverageSection}
 Based on the following recent tweets and your knowledge of the AI landscape, generate the full Intellina AI Daily Research Report:
 
 --- RECENT TWEETS ---
 ${tweets}
 --- END TWEETS ---
 
-Synthesize these signals with your broader knowledge. Prioritize what's most relevant to Intellina's three pillars.`
+Synthesize these signals with your broader knowledge. Prioritize what's most relevant to Intellina's three pillars. Focus on insights, angles, and developments NOT already covered in recent reports.`
 }
