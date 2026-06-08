@@ -132,6 +132,7 @@ export default function NotesSection() {
   const [active, setActive] = useState<Note | null>(null)
   const [title, setTitle] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [showList, setShowList] = useState(true)
   const titleRef = useRef('')
   titleRef.current = title
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -160,6 +161,7 @@ export default function NotesSection() {
     const data: Note = await res.json()
     setActive(data)
     setTitle(data.title)
+    setShowList(false)
   }, [])
 
   const newNote = async () => {
@@ -171,6 +173,7 @@ export default function NotesSection() {
     const note: Note = await res.json()
     await loadNotes()
     await openNote(note.id)
+    setShowList(false)
   }
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,7 +210,7 @@ export default function NotesSection() {
   return (
     <div className="flex h-full">
       {/* Notes sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col">
+      <aside className={`${showList ? 'flex' : 'hidden'} md:flex w-full md:w-64 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex-col`}>
         <div className="p-3 border-b border-[#E3E0D8]">
           <button
             onClick={newNote}
@@ -240,7 +243,7 @@ export default function NotesSection() {
       </aside>
 
       {/* Editor */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#FAF9F6]">
+      <div className={`${!showList ? 'flex' : 'hidden'} md:flex flex-1 flex-col min-w-0 bg-[#FAF9F6]`}>
         {!active ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
             <div className="text-5xl mb-4">📝</div>
@@ -256,7 +259,16 @@ export default function NotesSection() {
         ) : (
           <>
             {/* Top bar */}
-            <div className="flex items-center gap-3 px-8 pt-6 pb-2">
+            <div className="flex items-center gap-3 px-4 md:px-8 pt-6 pb-2">
+              <button
+                onClick={() => setShowList(true)}
+                className="md:hidden text-[#6B6B6B] hover:text-[#1A1A1A] p-1 -ml-1 flex-shrink-0"
+                aria-label="Back to notes list"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
               <input
                 type="text"
                 value={title}

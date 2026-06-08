@@ -12,6 +12,7 @@ export default function ChatSection() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [showList, setShowList] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const loadSessions = useCallback(async () => {
@@ -27,6 +28,7 @@ export default function ChatSection() {
     const res = await fetch(`/api/chat/${session.id}`)
     const data = await res.json()
     setMessages(Array.isArray(data) ? data : [])
+    setShowList(false)
   }, [])
 
   const newChat = async () => {
@@ -35,6 +37,7 @@ export default function ChatSection() {
     await loadSessions()
     setActiveSession(session)
     setMessages([])
+    setShowList(false)
   }
 
   const deleteSession = async (id: string) => {
@@ -84,7 +87,7 @@ export default function ChatSection() {
   return (
     <div className="flex h-full">
       {/* Chat sidebar */}
-      <aside className="w-64 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex flex-col">
+      <aside className={`${showList ? 'flex' : 'hidden'} md:flex w-full md:w-64 flex-shrink-0 bg-[#F5F3EE] border-r border-[#E3E0D8] flex-col`}>
         <div className="p-3 border-b border-[#E3E0D8]">
           <button
             onClick={newChat}
@@ -125,7 +128,7 @@ export default function ChatSection() {
       </aside>
 
       {/* Chat main */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#FAF9F6]">
+      <div className={`${!showList ? 'flex' : 'hidden'} md:flex flex-1 flex-col min-w-0 bg-[#FAF9F6]`}>
         {!activeSession ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
             <div className="text-5xl mb-4">💬</div>
@@ -142,6 +145,18 @@ export default function ChatSection() {
           </div>
         ) : (
           <>
+            <div className="flex items-center gap-2 px-4 pt-3 pb-1 md:hidden border-b border-[#E3E0D8]">
+              <button
+                onClick={() => setShowList(true)}
+                className="text-[#6B6B6B] hover:text-[#1A1A1A] p-1 -ml-1 flex-shrink-0"
+                aria-label="Back to chats list"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span className="text-sm font-medium text-[#1A1A1A] truncate">{activeSession.title}</span>
+            </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {messages.length === 0 && (
                 <div className="text-center text-[#9CA3AF] text-sm mt-8">
