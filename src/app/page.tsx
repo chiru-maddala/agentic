@@ -16,9 +16,10 @@ const ContentSuggestions = dynamic(() => import('@/components/ContentSuggestions
 const ContextSection = dynamic(() => import('@/components/ContextSection'), { ssr: false })
 const UserManagementSection = dynamic(() => import('@/components/UserManagementSection'), { ssr: false })
 const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
+const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research'
 type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -63,6 +64,12 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <line x1="7" y1="12" x2="17" y2="6"/><line x1="7" y1="12" x2="17" y2="18"/><line x1="14" y1="8" x2="17" y2="6"/>
     </svg>
   ),
+  research: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -74,6 +81,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'courses', label: 'Presentations' },
   { id: 'contentlab', label: 'Content Lab' },
   { id: 'graph', label: 'Knowledge Graph' },
+  { id: 'research', label: 'Research' },
 ]
 
 export default function Home() {
@@ -466,6 +474,7 @@ export default function Home() {
         {tab === 'courses' && <CoursesSection />}
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'graph' && <KnowledgeGraphSection />}
+        {tab === 'research' && <ResearchSection />}
         {tab === 'settings' && (
           <div className="flex flex-col md:flex-row h-full">
             {/* Settings sub-nav */}
