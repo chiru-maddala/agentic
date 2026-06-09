@@ -2,8 +2,26 @@
 
 import { useEffect, useState } from 'react'
 
-type Suggestion = { title: string; concept: string }
+type Pillar = 'Learning AI' | 'Enterprise AI' | 'AI Infrastructure' | 'General'
+type Suggestion = { title: string; concept: string; pillar?: Pillar }
 type Suggestions = { blog_posts: Suggestion[]; social_posts: Suggestion[] }
+
+const PILLARS: Pillar[] = ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General']
+const PILLAR_COLORS: Record<Pillar, string> = {
+  'Learning AI': 'bg-blue-50 text-blue-700 border-blue-200',
+  'Enterprise AI': 'bg-purple-50 text-purple-700 border-purple-200',
+  'AI Infrastructure': 'bg-amber-50 text-amber-700 border-amber-200',
+  'General': 'bg-[#F5F3EE] text-[#6B6B6B] border-[#E3E0D8]',
+}
+
+function groupByPillar(items: Suggestion[]): Record<Pillar, Suggestion[]> {
+  const groups: Record<Pillar, Suggestion[]> = { 'Learning AI': [], 'Enterprise AI': [], 'AI Infrastructure': [], 'General': [] }
+  for (const item of items) {
+    const p = (item.pillar && groups[item.pillar] !== undefined) ? item.pillar : 'General'
+    groups[p].push(item)
+  }
+  return groups
+}
 
 function AddedToast({ message }: { message: string }) {
   return (
@@ -108,67 +126,65 @@ export default function ContentSuggestions({
         </div>
       )}
 
-      {!loading && suggestions && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Blog Posts */}
-          <div>
-            <h3 className="text-xs font-semibold text-[#6B6B6B] uppercase tracking-wider mb-3">📝 Blog Post Ideas</h3>
-            <div className="space-y-2">
-              {suggestions.blog_posts.map((item, i) => {
-                const key = `article-${item.title}`
-                return (
-                  <div key={i} className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{item.title}</p>
-                      <p className="text-xs text-[#9CA3AF] mt-1 leading-relaxed">{item.concept}</p>
-                    </div>
-                    <button
-                      onClick={() => addToLab('article', item)}
-                      disabled={added[key]}
-                      className={`flex-shrink-0 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-                        added[key]
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-[#FEF3EC] text-[#D4622A] border-[#F5D3BC] hover:bg-[#D4622A] hover:text-white'
-                      }`}
-                    >
-                      {added[key] ? '✓ Added' : '+ Add to Lab'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+      {!loading && suggestions && (() => {
+        const blogGroups = groupByPillar(suggestions.blog_posts)
+        const socialGroups = groupByPillar(suggestions.social_posts)
 
-          {/* Social Posts */}
-          <div>
-            <h3 className="text-xs font-semibold text-[#6B6B6B] uppercase tracking-wider mb-3">📣 Social Media Post Ideas</h3>
-            <div className="space-y-2">
-              {suggestions.social_posts.map((item, i) => {
-                const key = `social-${item.title}`
-                return (
-                  <div key={i} className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{item.title}</p>
-                      <p className="text-xs text-[#9CA3AF] mt-1 leading-relaxed">{item.concept}</p>
-                    </div>
-                    <button
-                      onClick={() => addToLab('social', item)}
-                      disabled={added[key]}
-                      className={`flex-shrink-0 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-                        added[key]
-                          ? 'bg-green-50 text-green-700 border-green-200'
-                          : 'bg-[#FEF3EC] text-[#D4622A] border-[#F5D3BC] hover:bg-[#D4622A] hover:text-white'
-                      }`}
-                    >
-                      {added[key] ? '✓ Added' : '+ Add to Lab'}
-                    </button>
+        const renderCard = (item: Suggestion, type: 'article' | 'social', i: number) => {
+          const key = `${type}-${item.title}`
+          return (
+            <div key={i} className="bg-white border border-[#E3E0D8] rounded-xl p-3.5 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{item.title}</p>
+                <p className="text-xs text-[#9CA3AF] mt-1 leading-relaxed">{item.concept}</p>
+              </div>
+              <button
+                onClick={() => addToLab(type, item)}
+                disabled={added[key]}
+                className={`flex-shrink-0 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+                  added[key]
+                    ? 'bg-green-50 text-green-700 border-green-200'
+                    : 'bg-[#FEF3EC] text-[#D4622A] border-[#F5D3BC] hover:bg-[#D4622A] hover:text-white'
+                }`}
+              >
+                {added[key] ? '✓ Added' : '+ Add to Lab'}
+              </button>
+            </div>
+          )
+        }
+
+        const renderPillarGroup = (groups: Record<Pillar, Suggestion[]>, type: 'article' | 'social') => (
+          <>
+            {PILLARS.map((pillar) => {
+              const items = groups[pillar]
+              if (items.length === 0) return null
+              return (
+                <div key={pillar} className="mb-4">
+                  <div className={`inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border mb-2 ${PILLAR_COLORS[pillar]}`}>
+                    {pillar}
                   </div>
-                )
-              })}
+                  <div className="space-y-2">
+                    {items.map((item, i) => renderCard(item, type, i))}
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )
+
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <h3 className="text-xs font-semibold text-[#6B6B6B] uppercase tracking-wider mb-3">📝 Blog Post Ideas</h3>
+              {renderPillarGroup(blogGroups, 'article')}
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-[#6B6B6B] uppercase tracking-wider mb-3">📣 Social Media Post Ideas</h3>
+              {renderPillarGroup(socialGroups, 'social')}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {toast && <AddedToast message={toast} />}
     </div>

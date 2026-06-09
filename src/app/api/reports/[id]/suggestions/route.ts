@@ -42,13 +42,13 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
 The JSON must match exactly:
 {
   "blog_posts": [
-    { "title": "string", "concept": "string (1-2 sentences)" }
+    { "title": "string", "concept": "string (1-2 sentences)", "pillar": "Learning AI | Enterprise AI | AI Infrastructure | General" }
   ],
   "social_posts": [
-    { "title": "string", "concept": "string (1-2 sentences)" }
+    { "title": "string", "concept": "string (1-2 sentences)", "pillar": "Learning AI | Enterprise AI | AI Infrastructure | General" }
   ]
 }
-Rules: 3-5 blog post ideas, 3-5 social post ideas. Tie each idea to market signals in the report. Make titles punchy and specific.${businessCtx ? `\n\nBusiness context:\n${businessCtx}` : ''}`,
+Rules: 3-5 blog post ideas, 3-5 social post ideas. Assign each idea to its most relevant Intellina pillar (Learning AI, Enterprise AI, AI Infrastructure, or General). Tie each idea to market signals in the report. Make titles punchy and specific.${businessCtx ? `\n\nBusiness context:\n${businessCtx}` : ''}`,
     messages: [
       {
         role: 'user',
