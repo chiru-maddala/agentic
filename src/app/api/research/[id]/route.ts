@@ -1,8 +1,8 @@
-import { getSupabase } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = getSupabase()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('research_reports')
     .select('*')
@@ -15,7 +15,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = getSupabase()
+  const supabase = createAdminClient()
 
   // Fetch sources to clean up storage
   const { data } = await supabase

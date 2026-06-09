@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { getSupabase } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { buildSystemPrompt } from '@/lib/prompt'
 
 export const maxDuration = 300
@@ -24,7 +24,7 @@ async function fetchUrlContent(url: string): Promise<string> {
 }
 
 export async function GET() {
-  const supabase = getSupabase()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('research_reports')
     .select('id, title, sources, created_at')
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = getSupabase()
+  const supabase = createAdminClient()
 
   // PDFs are uploaded client-side to Supabase Storage; we receive only metadata + public URLs
   const body = await request.json() as {
