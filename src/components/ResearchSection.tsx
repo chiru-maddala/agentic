@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
+import { createClient } from '@/lib/supabase-browser'
 
 type Source = { type: 'pdf' | 'url'; name: string; url: string }
 
@@ -77,12 +78,31 @@ export default function ResearchSection() {
     setStreaming(true)
     setShowList(false)
 
-    const form = new FormData()
-    form.append('title', title || `Research — ${new Date().toLocaleDateString()}`)
-    form.append('urls', JSON.stringify(pendingUrls))
-    for (const f of pendingFiles) form.append('pdfs', f)
+    // Upload PDFs directly from browser to Supabase Storage (bypasses Vercel payload limit)
+    const supabase = createClient()
+    const uploadedPdfs: { name: string; storagePath: string; publicUrl: string }[] = []
 
-    const res = await fetch('/api/research', { method: 'POST', body: form })
+    for (const file of pendingFiles) {
+      const storagePath = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+      const { error } = await supabase.storage
+        .from('research-pdfs')
+        .upload(storagePath, file, { contentType: 'application/pdf', upsert: false })
+
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('research-pdfs').getPublicUrl(storagePath)
+        uploadedPdfs.push({ name: file.name, storagePath, publicUrl: urlData.publicUrl })
+      }
+    }
+
+    const res = await fetch('/api/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title || `Research — ${new Date().toLocaleDateString()}`,
+        urls: pendingUrls,
+        pdfs: uploadedPdfs,
+      }),
+    })
     if (!res.body) return
 
     const reader = res.body.getReader()

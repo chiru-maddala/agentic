@@ -11,7 +11,6 @@ async function fetchUrlContent(url: string): Promise<string> {
       signal: AbortSignal.timeout(15000),
     })
     const html = await res.text()
-    // Strip HTML tags and collapse whitespace
     const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -38,52 +37,43 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = getSupabase()
-  const formData = await request.formData()
 
-  const title = (formData.get('title') as string) || 'Research Analysis'
-  const urlsRaw = (formData.get('urls') as string) || '[]'
-  const urls: string[] = JSON.parse(urlsRaw)
-  const files = formData.getAll('pdfs') as File[]
+  // PDFs are uploaded client-side to Supabase Storage; we receive only metadata + public URLs
+  const body = await request.json() as {
+    title: string
+    urls: string[]
+    pdfs: { name: string; storagePath: string; publicUrl: string }[]
+  }
+
+  const { title = 'Research Analysis', urls = [], pdfs = [] } = body
 
   type Source = { type: 'pdf' | 'url'; name: string; url: string; storage_path?: string }
   const sources: Source[] = []
-
-  // Upload PDFs to Supabase Storage and collect base64 for Claude
   const pdfBlocks: Anthropic.DocumentBlockParam[] = []
 
-  for (const file of files) {
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const storagePath = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('research-pdfs')
-      .upload(storagePath, buffer, { contentType: 'application/pdf', upsert: false })
-
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage
-        .from('research-pdfs')
-        .getPublicUrl(storagePath)
-
-      sources.push({ type: 'pdf', name: file.name, url: urlData.publicUrl, storage_path: storagePath })
+  // Download each PDF from its public URL and base64-encode for Claude
+  for (const pdf of pdfs) {
+    sources.push({ type: 'pdf', name: pdf.name, url: pdf.publicUrl, storage_path: pdf.storagePath })
+    try {
+      const res = await fetch(pdf.publicUrl)
+      const buffer = Buffer.from(await res.arrayBuffer())
+      pdfBlocks.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') },
+        title: pdf.name,
+      } as Anthropic.DocumentBlockParam)
+    } catch {
+      // Source is recorded; Claude just won't have the binary content
     }
-
-    pdfBlocks.push({
-      type: 'document',
-      source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') },
-      title: file.name,
-    } as Anthropic.DocumentBlockParam)
   }
 
-  // Fetch URL content
+  // Fetch URL content server-side
   const urlContents: { url: string; content: string }[] = []
   for (const url of urls) {
-    const content = await fetchUrlContent(url)
-    urlContents.push({ url, content })
     sources.push({ type: 'url', name: url, url })
+    urlContents.push({ url, content: await fetchUrlContent(url) })
   }
 
-  // Build user message content
   const today = new Date().toISOString().split('T')[0]
   let textContent = `Today is ${today}. The user has submitted research material for analysis.\n\n`
 
@@ -128,11 +118,7 @@ export async function POST(request: Request) {
         }
 
         if (fullContent) {
-          await supabase.from('research_reports').insert({
-            title,
-            content: fullContent,
-            sources,
-          })
+          await supabase.from('research_reports').insert({ title, content: fullContent, sources })
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
