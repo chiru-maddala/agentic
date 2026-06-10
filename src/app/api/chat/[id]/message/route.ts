@@ -155,19 +155,26 @@ export async function POST(
     .order('created_at', { ascending: false })
     .limit(20)
 
-  // Truncate each report to ~1500 chars so 3 reports ≈ 4500 chars max in context
+  // Inject only headings from recent reports — not full content — to keep context lean
   const reportsContext =
     reports && reports.length > 0
-      ? '\n\n### Recent Intelligence Reports (latest 3, summarised):\n' +
+      ? '\n\n### Recent Report Headlines:\n' +
         reports
-          .map((r) => `**Report ${r.date}:**\n${r.content.slice(0, 1500)}${r.content.length > 1500 ? '\n…[truncated]' : ''}`)
-          .join('\n\n---\n\n')
+          .map((r) => {
+            const headings = [...r.content.matchAll(/^#{1,3} (.+)/gm)]
+              .map((m) => m[1])
+              .slice(0, 6)
+              .join(' · ')
+            return `**${r.date}:** ${headings}`
+          })
+          .join('\n')
       : ''
 
   const systemPrompt =
     buildSystemPrompt() +
     '\n\nYou are now acting as an interactive assistant. Answer questions, provide analysis, and help with strategy based on the intelligence reports and your knowledge.' +
-    '\n\nYou have access to tools to manage Tasks and Notes. When the user asks you to add, save, or create tasks or notes — use the appropriate tool. After using tools, summarize what you did.' +
+    '\n\nYou have access to tools to manage Tasks and Notes. When the user asks to create or save something, use the appropriate tool. After using a tool, confirm briefly what you did.' +
+    '\n\n**Response style:** Be concise by default — short focused answers unless the user explicitly asks for detail. Before generating a large note, document, or plan, briefly describe what you will create and ask for confirmation first. Only produce comprehensive long-form content when the user confirms or explicitly requests it.' +
     reportsContext
 
   // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT)
@@ -200,7 +207,7 @@ export async function POST(
 
           const anthropicStream = client.messages.stream({
             model: 'claude-sonnet-4-6',
-            max_tokens: 4000,
+            max_tokens: 8000,
             system: systemPrompt,
             messages: loopMessages,
             tools: TOOLS,
