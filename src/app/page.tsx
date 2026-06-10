@@ -18,6 +18,7 @@ const ContextSection = dynamic(() => import('@/components/ContextSection'), { ss
 const UserManagementSection = dynamic(() => import('@/components/UserManagementSection'), { ssr: false })
 const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
+const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
 type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror'
@@ -483,6 +484,24 @@ export default function Home() {
         {tab === 'graph' && <KnowledgeGraphSection />}
         {tab === 'mirror' && <MirrorSection />}
         {tab === 'research' && <ResearchSection />}
+        {tab !== 'chat' && (
+          <FloatingChat
+            pageContext={
+              tab === 'reports' ? `reports. ${selectedDate ? `Viewing report from ${selectedDate}.` : 'No report selected.'}${content ? ` Report content: ${content.slice(0, 600)}` : ''}`
+              : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
+              : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
+              : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — goals, signals, and coaching assessment.'
+              : tab === 'research' ? 'research. Viewing the Research section.'
+              : tab === 'dashboard' ? 'dashboard. Viewing the main Dashboard overview.'
+              : tab === 'courses' ? 'courses. Viewing the Presentations section.'
+              : tab === 'contentlab' ? 'contentlab. Viewing the Content Lab.'
+              : tab === 'graph' ? 'graph. Viewing the Knowledge Graph.'
+              : tab === 'settings' ? 'settings. Viewing Settings.'
+              : 'dashboard'
+            }
+            onOpenFull={() => handleTabChange('chat')}
+          />
+        )}
         {tab === 'settings' && (
           <div className="flex flex-col md:flex-row h-full">
             {/* Settings sub-nav */}

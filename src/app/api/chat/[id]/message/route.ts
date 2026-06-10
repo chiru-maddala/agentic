@@ -133,7 +133,7 @@ export async function POST(
 ) {
   const supabase = getSupabase()
   const { id: sessionId } = await ctx.params
-  const { message } = await req.json()
+  const { message, pageContext } = await req.json()
 
   await supabase.from('chat_messages').insert({
     session_id: sessionId,
@@ -175,6 +175,7 @@ export async function POST(
     '\n\nYou are now acting as an interactive assistant. Answer questions, provide analysis, and help with strategy based on the intelligence reports and your knowledge.' +
     '\n\nYou have access to tools to manage Tasks and Notes. When the user asks to create or save something, use the appropriate tool. After using a tool, confirm briefly what you did.' +
     '\n\n**Response style:** Be concise by default — short focused answers unless the user explicitly asks for detail. Before generating a large note, document, or plan, briefly describe what you will create and ask for confirmation first. Only produce comprehensive long-form content when the user confirms or explicitly requests it.' +
+    (pageContext ? `\n\n**Current page context:** The user is currently on the ${pageContext}` : '') +
     reportsContext
 
   // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT)
