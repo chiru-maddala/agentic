@@ -145,18 +145,23 @@ export async function POST(
     .from('reports')
     .select('date, content')
     .order('created_at', { ascending: false })
-    .limit(10)
+    .limit(3)
 
+  // Only keep the last 20 messages to avoid unbounded context growth
   const { data: history } = await supabase
     .from('chat_messages')
     .select('role, content')
     .eq('session_id', sessionId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(20)
 
+  // Truncate each report to ~1500 chars so 3 reports ≈ 4500 chars max in context
   const reportsContext =
     reports && reports.length > 0
-      ? '\n\n### Recent Intelligence Reports:\n' +
-        reports.map((r) => `**Report ${r.date}:**\n${r.content}`).join('\n\n---\n\n')
+      ? '\n\n### Recent Intelligence Reports (latest 3, summarised):\n' +
+        reports
+          .map((r) => `**Report ${r.date}:**\n${r.content.slice(0, 1500)}${r.content.length > 1500 ? '\n…[truncated]' : ''}`)
+          .join('\n\n---\n\n')
       : ''
 
   const systemPrompt =
@@ -165,10 +170,13 @@ export async function POST(
     '\n\nYou have access to tools to manage Tasks and Notes. When the user asks you to add, save, or create tasks or notes — use the appropriate tool. After using tools, summarize what you did.' +
     reportsContext
 
-  const baseMessages: Anthropic.MessageParam[] = (history ?? []).map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-  }))
+  // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT)
+  const baseMessages: Anthropic.MessageParam[] = (history ?? [])
+    .reverse()
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))
 
   const client = new Anthropic()
   const encoder = new TextEncoder()
