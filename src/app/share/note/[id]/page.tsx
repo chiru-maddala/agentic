@@ -71,10 +71,15 @@ export default async function ShareNotePage({ params }: { params: Promise<{ id: 
         {/* Content */}
         <div
           className="bg-white border border-[#E3E0D8] rounded-2xl px-8 py-8 prose prose-gray max-w-none
-            prose-headings:text-[#1A1A1A] prose-p:text-[#374151] prose-p:leading-relaxed
+            prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+            prose-h1:text-xl prose-h1:mt-6 prose-h1:mb-2
+            prose-h2:text-base prose-h2:mt-5 prose-h2:mb-1.5
+            prose-h3:text-sm prose-h3:mt-4 prose-h3:mb-1 prose-h3:text-[#374151]
+            prose-p:text-[#374151] prose-p:leading-relaxed prose-p:my-1.5
             prose-strong:text-[#1A1A1A] prose-li:text-[#374151]
             prose-blockquote:border-l-[#D4622A] prose-blockquote:text-[#6B6B6B]
-            prose-code:text-[#D4622A] prose-code:bg-[#FEF3EC]"
+            prose-code:text-[#D4622A] prose-code:bg-[#FEF3EC]
+            prose-hr:border-[#E3E0D8] prose-hr:my-4"
           dangerouslySetInnerHTML={{ __html: toHtml(note.content) || '<p class="text-gray-400">No content.</p>' }}
         />
 
