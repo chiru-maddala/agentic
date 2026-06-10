@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { buildSystemPrompt } from '@/lib/prompt'
+import { fetchRecentTweets } from '@/lib/twitter'
 
 export const maxDuration = 300
 
@@ -44,6 +45,21 @@ const TOOLS: Anthropic.Tool[] = [
     description: 'Retrieve all notes from the Notes app.',
     input_schema: { type: 'object', properties: {} },
   },
+  {
+    name: 'search_twitter',
+    description: 'Search Twitter/X for live tweets on a topic. Only call this when the user explicitly asks to search Twitter, check Twitter, or look up something on Twitter/X.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        queries: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of search queries to run (1–5). Be specific — e.g. "Claude 4 release", "Gemini Ultra benchmark".',
+        },
+      },
+      required: ['queries'],
+    },
+  },
 ]
 
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
@@ -86,6 +102,16 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     if (error) return `Error fetching tasks: ${error.message}`
     if (!data || data.length === 0) return 'No tasks found.'
     return data.map((t) => `- [${t.status}] ${t.title} (${t.pillar})`).join('\n')
+  }
+
+  if (name === 'search_twitter') {
+    const queries = (input.queries as string[]).slice(0, 5)
+    try {
+      const tweets = await fetchRecentTweets(queries)
+      return tweets.length > 0 ? tweets : 'No recent tweets found for those queries.'
+    } catch {
+      return 'Twitter search failed — the API may be unavailable or rate-limited.'
+    }
   }
 
   if (name === 'list_notes') {

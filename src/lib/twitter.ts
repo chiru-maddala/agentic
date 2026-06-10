@@ -1,7 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TwitterApi } from 'twitter-api-v2'
 
+// Always-on queries for breaking AI news — run regardless of pillar focus
+const BREAKING_NEWS_QUERIES = [
+  'new AI model release announcement',
+  'AI breakthrough trending',
+]
+
 const FALLBACK_QUERIES = [
+  ...BREAKING_NEWS_QUERIES,
   'AI education K-12',
   'agentic AI enterprise',
   'AI infrastructure GPU compute',
@@ -29,20 +36,22 @@ The company (Intellina AI) focuses on three pillars:
 Recently covered topics (avoid repeating these angles):
 ${coveredTopics}
 
-Generate exactly 7 fresh, specific Twitter search queries that will surface NEW signals not covered above.
+Generate exactly 5 fresh, specific Twitter search queries scoped to the three pillars above that will surface NEW signals not covered above.
 Output only the queries, one per line, no numbering or punctuation prefix.`,
       },
     ],
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
-  const queries = text
+  const pillarQueries = text
     .split('\n')
     .map((q) => q.trim())
     .filter((q) => q.length > 0)
-    .slice(0, 7)
+    .slice(0, 5)
 
-  return queries.length >= 3 ? queries : FALLBACK_QUERIES
+  // Always prepend breaking-news queries so trending AI stories are never missed
+  const queries = [...BREAKING_NEWS_QUERIES, ...(pillarQueries.length >= 3 ? pillarQueries : FALLBACK_QUERIES.slice(2))]
+  return queries
 }
 
 export async function fetchRecentTweets(queries: string[] = FALLBACK_QUERIES): Promise<string> {

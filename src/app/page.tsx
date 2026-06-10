@@ -86,7 +86,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function Home() {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab | 'settings'>('reports')
+  const [tab, setTab] = useState<Tab | 'settings'>('dashboard')
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('context')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -470,7 +470,7 @@ export default function Home() {
         {tab === 'chat' && <ChatSection />}
         {tab === 'tasks' && <TasksSection />}
         {tab === 'notes' && <NotesSection />}
-        {tab === 'dashboard' && <DashboardSection />}
+        {tab === 'dashboard' && <DashboardSection onNavigate={handleTabChange} onGenerateReport={generateReport} generating={generating} />}
         {tab === 'courses' && <CoursesSection />}
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'graph' && <KnowledgeGraphSection />}
