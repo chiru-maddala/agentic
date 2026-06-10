@@ -188,8 +188,16 @@ export async function POST(
 
       try {
         let continueLoop = true
+        let iterations = 0
+        const MAX_TOOL_ITERATIONS = 5
 
         while (continueLoop) {
+          if (iterations >= MAX_TOOL_ITERATIONS) {
+            controller.enqueue(encoder.encode('\n\n⚠️ Reached maximum tool call limit.'))
+            break
+          }
+          iterations++
+
           const anthropicStream = client.messages.stream({
             model: 'claude-sonnet-4-6',
             max_tokens: 4000,
@@ -226,19 +234,26 @@ export async function POST(
                 block.name,
                 block.input as Record<string, unknown>
               )
+              // Truncate tool results fed back into context to avoid bloating loopMessages
+              const truncated = result.length > 500
+                ? result.slice(0, 500) + '… [truncated for context]'
+                : result
               toolResults.push({
                 type: 'tool_result',
                 tool_use_id: block.id,
-                content: result,
+                content: truncated,
               })
             }
 
+            // Only keep the last 10 base messages + this tool exchange to cap context growth
+            const cappedBase = loopMessages.slice(-10)
             loopMessages = [
-              ...loopMessages,
+              ...cappedBase,
               { role: 'assistant', content: finalMsg.content },
               { role: 'user', content: toolResults },
             ]
           } else {
+            // Covers 'end_turn', 'stop_sequence', 'max_tokens' — all mean stop
             continueLoop = false
           }
         }
