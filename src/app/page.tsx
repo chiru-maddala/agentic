@@ -10,6 +10,7 @@ const ChatSection = dynamic(() => import('@/components/ChatSection'), { ssr: fal
 const TasksSection = dynamic(() => import('@/components/TasksSection'), { ssr: false })
 const NotesSection = dynamic(() => import('@/components/NotesSection'), { ssr: false })
 const DashboardSection = dynamic(() => import('@/components/DashboardSection'), { ssr: false })
+const MirrorSection = dynamic(() => import('@/components/MirrorSection'), { ssr: false })
 const CoursesSection = dynamic(() => import('@/components/CoursesSection'), { ssr: false })
 const ContentLabSection = dynamic(() => import('@/components/ContentLabSection'), { ssr: false })
 const ContentSuggestions = dynamic(() => import('@/components/ContentSuggestions'), { ssr: false })
@@ -19,7 +20,7 @@ const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphS
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror'
 type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -70,14 +71,20 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
     </svg>
   ),
+  mirror: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22V12"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="7" r="5"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'mirror', label: 'Strategic Mirror' },
   { id: 'reports', label: 'Reports' },
   { id: 'chat', label: 'Chat' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'notes', label: 'Notes' },
-  { id: 'dashboard', label: 'Dashboard' },
   { id: 'courses', label: 'Presentations' },
   { id: 'contentlab', label: 'Content Lab' },
   { id: 'graph', label: 'Knowledge Graph' },
@@ -474,6 +481,7 @@ export default function Home() {
         {tab === 'courses' && <CoursesSection />}
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'graph' && <KnowledgeGraphSection />}
+        {tab === 'mirror' && <MirrorSection />}
         {tab === 'research' && <ResearchSection />}
         {tab === 'settings' && (
           <div className="flex flex-col md:flex-row h-full">

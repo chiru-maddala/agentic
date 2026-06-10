@@ -119,6 +119,14 @@ export async function POST(request: Request) {
 
         if (fullContent) {
           await supabase.from('research_reports').insert({ title, content: fullContent, sources })
+
+          // Auto-signal capture (fire-and-forget)
+          void Promise.resolve(supabase.from('mirror_signals').insert({
+            type: 'research_done',
+            content: `Ran research: "${title}"`,
+            pillar: null,
+            metadata: { source_count: sources.length },
+          })).catch(() => {})
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)

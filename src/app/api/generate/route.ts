@@ -76,6 +76,14 @@ export async function POST() {
 
           // Auto-extract tasks from Priority Actions section
           if (report) {
+            // Auto-signal capture (fire-and-forget)
+            const firstHeading = fullContent.match(/^#{1,2} (.+)/m)?.[1] ?? 'Daily Intelligence Report'
+            void Promise.resolve(supabase.from('mirror_signals').insert({
+              type: 'report_generated',
+              content: `Generated report: "${firstHeading}"`,
+              pillar: null,
+              metadata: { report_id: report.id, date: today },
+            })).catch(() => {})
             const actionsMatch = fullContent.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)
             if (actionsMatch) {
               const lines = actionsMatch[0].split('\n').filter((l) => /^[-*•]\s/.test(l.trim()))

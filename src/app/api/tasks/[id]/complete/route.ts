@@ -59,6 +59,14 @@ export async function POST(
             .from('tasks')
             .update({ document_content: fullContent, status: 'done' })
             .eq('id', id)
+
+          // Auto-signal capture (fire-and-forget)
+          void Promise.resolve(supabase.from('mirror_signals').insert({
+            type: 'task_completed',
+            content: `Completed task: "${task.title}"`,
+            pillar: task.pillar ?? null,
+            metadata: { task_id: task.id },
+          })).catch(() => {})
         }
       } finally {
         controller.close()

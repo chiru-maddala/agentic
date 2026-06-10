@@ -29,5 +29,14 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Auto-signal capture (fire-and-forget)
+  void Promise.resolve(supabase.from('mirror_signals').insert({
+    type: 'task_created',
+    content: `Created task: "${data.title}"`,
+    pillar: data.pillar ?? null,
+    metadata: { task_id: data.id, source: data.source },
+  })).catch(() => {})
+
   return Response.json(data)
 }
