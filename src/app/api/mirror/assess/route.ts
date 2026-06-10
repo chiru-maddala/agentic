@@ -36,7 +36,7 @@ export async function POST() {
       ? goals
           .map(
             (g) =>
-              `**${g.pillar}**\nGoal: ${g.goal_statement || '(not set)'}\nSuccess looks like: ${g.success_criteria || '(not set)'}\nNorth Star Metric: ${g.north_star_metric || '(not set)'}`
+              `**${g.pillar}**\nGoal: ${g.goal_statement || '(not set)'}\nSuccess looks like: ${g.success_criteria || '(not set)'}\nNorth Star Metric: ${g.north_star_metric || '(not set)'}\nConstraints & Context: ${g.constraints_context || '(not set)'}`
           )
           .join('\n\n')
       : 'No goals defined yet.'

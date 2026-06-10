@@ -10,6 +10,7 @@ type Goal = {
   goal_statement: string
   success_criteria: string
   north_star_metric: string
+  constraints_context: string
   updated_at: string
 }
 
@@ -103,6 +104,13 @@ function GoalCard({
           onChange={(v) => onChange('north_star_metric', v)}
           rows={1}
           mono
+        />
+        <Field
+          label="Constraints & Context"
+          placeholder="What are the real-world limits? Team size, funding stage, timeline pressure, key dependencies, risks, or anything else that shapes what's actually possible right now."
+          value={goal.constraints_context ?? ''}
+          onChange={(v) => onChange('constraints_context', v)}
+          rows={2}
         />
       </div>
     </div>
