@@ -1,5 +1,13 @@
 import { Metadata } from 'next'
+import { marked } from 'marked'
 import { getSupabase } from '@/lib/supabase'
+
+function toHtml(content: string): string {
+  if (!content) return ''
+  // If it already looks like HTML, pass through; otherwise parse as Markdown
+  if (/^\s*<[a-zA-Z]/.test(content.trim())) return content
+  return marked.parse(content, { async: false }) as string
+}
 
 async function getNote(id: string) {
   const supabase = getSupabase()
@@ -15,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const note = await getNote(id)
   if (!note) return { title: 'Note — IntelliRadar' }
-  const desc = note.content?.replace(/<[^>]+>/g, '').slice(0, 200) ?? ''
+  const desc = toHtml(note.content ?? '').replace(/<[^>]+>/g, '').slice(0, 200)
   return {
     title: `${note.title} — IntelliRadar`,
     description: desc,
@@ -67,7 +75,7 @@ export default async function ShareNotePage({ params }: { params: Promise<{ id: 
             prose-strong:text-[#1A1A1A] prose-li:text-[#374151]
             prose-blockquote:border-l-[#D4622A] prose-blockquote:text-[#6B6B6B]
             prose-code:text-[#D4622A] prose-code:bg-[#FEF3EC]"
-          dangerouslySetInnerHTML={{ __html: note.content || '<p class="text-gray-400">No content.</p>' }}
+          dangerouslySetInnerHTML={{ __html: toHtml(note.content) || '<p class="text-gray-400">No content.</p>' }}
         />
 
         {/* Branding footer */}
