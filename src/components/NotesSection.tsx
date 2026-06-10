@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { marked } from 'marked'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -12,6 +13,19 @@ import Placeholder from '@tiptap/extension-placeholder'
 
 type NoteMeta = { id: string; title: string; updated_at: string }
 type Note = NoteMeta & { content: string; created_at: string }
+
+/** Returns true if the string looks like stored HTML rather than Markdown. */
+function isHtml(str: string): boolean {
+  return /^\s*<[a-zA-Z]/.test(str.trim())
+}
+
+/** Convert content to HTML for Tiptap — Markdown gets parsed, HTML passes through. */
+function toEditorHtml(content: string): string {
+  if (!content) return ''
+  if (isHtml(content)) return content
+  // Use marked synchronously (string overload)
+  return marked.parse(content, { async: false }) as string
+}
 
 function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) => void }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -26,7 +40,7 @@ function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) =>
       TableCell,
       Placeholder.configure({ placeholder: 'Start writing…' }),
     ],
-    content: note.content || '',
+    content: toEditorHtml(note.content),
     onUpdate: ({ editor }) => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(() => {
@@ -37,8 +51,11 @@ function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) =>
 
   // When note changes, update editor content
   useEffect(() => {
-    if (editor && note.content !== editor.getHTML()) {
-      editor.commands.setContent(note.content || '')
+    if (editor) {
+      const html = toEditorHtml(note.content)
+      if (html !== editor.getHTML()) {
+        editor.commands.setContent(html)
+      }
     }
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
