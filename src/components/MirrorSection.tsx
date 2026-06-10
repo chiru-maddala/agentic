@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
+import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
 
 type MirrorTab = 'intent' | 'coach' | 'signals'
 
@@ -24,10 +25,27 @@ type Signal = {
 
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
 
-const PILLAR_COLORS: Record<string, { border: string; badge: string; icon: string }> = {
-  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚' },
-  'Enterprise AI':     { border: 'border-violet-200', badge: 'bg-violet-50 text-violet-700', icon: '🤖' },
-  'AI Infrastructure': { border: 'border-amber-200',  badge: 'bg-amber-50 text-amber-700',  icon: '☁️' },
+const PILLAR_COLORS: Record<string, {
+  border: string; badge: string; icon: string
+  bg: string; accent: string; bar: string; text: string
+}> = {
+  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚', bg: 'bg-blue-50',   accent: 'border-blue-300', bar: 'bg-blue-500',   text: 'text-blue-700' },
+  'Enterprise AI':     { border: 'border-violet-200', badge: 'bg-violet-50 text-violet-700', icon: '🤖', bg: 'bg-violet-50', accent: 'border-violet-300', bar: 'bg-violet-500', text: 'text-violet-700' },
+  'AI Infrastructure': { border: 'border-amber-200',  badge: 'bg-amber-50 text-amber-700',  icon: '☁️', bg: 'bg-amber-50',  accent: 'border-amber-300', bar: 'bg-amber-500',  text: 'text-amber-700' },
+}
+
+const MOMENTUM_META: Record<string, { label: string; icon: string; color: string }> = {
+  accelerating: { label: 'Accelerating', icon: '↑',  color: 'text-green-600 bg-green-50 border-green-200' },
+  building:     { label: 'Building',     icon: '↗',  color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+  steady:       { label: 'Steady',       icon: '→',  color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  slowing:      { label: 'Slowing',      icon: '↘',  color: 'text-amber-600 bg-amber-50 border-amber-200' },
+  drifting:     { label: 'Drifting',     icon: '↓',  color: 'text-red-600 bg-red-50 border-red-200' },
+}
+
+const URGENCY_META: Record<string, { dot: string; label: string }> = {
+  high:   { dot: 'bg-red-500',    label: 'High' },
+  medium: { dot: 'bg-amber-400',  label: 'Medium' },
+  low:    { dot: 'bg-slate-300',  label: 'Low' },
 }
 
 const SIGNAL_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -50,16 +68,8 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // ─── Goal Card ────────────────────────────────────────────────────────────────
-function GoalCard({
-  pillar,
-  goal,
-  onChange,
-  saving,
-}: {
-  pillar: string
-  goal: Goal
-  onChange: (field: keyof Goal, value: string) => void
-  saving: boolean
+function GoalCard({ pillar, goal, onChange, saving }: {
+  pillar: string; goal: Goal; onChange: (field: keyof Goal, value: string) => void; saving: boolean
 }) {
   const colors = PILLAR_COLORS[pillar]
   const daysSince = goal.updated_at
@@ -83,83 +93,134 @@ function GoalCard({
         )}
       </div>
       <div className="divide-y divide-[#F5F3EE]">
-        <Field
-          label="Goal"
-          placeholder={`What do you want to achieve with ${pillar}? Be specific — what does winning look like in 12 months?`}
-          value={goal.goal_statement}
-          onChange={(v) => onChange('goal_statement', v)}
-          rows={3}
-        />
-        <Field
-          label="Success looks like"
-          placeholder="Describe the future state concretely. What would you see, hear, or measure if this goal were fully achieved?"
-          value={goal.success_criteria}
-          onChange={(v) => onChange('success_criteria', v)}
-          rows={2}
-        />
-        <Field
-          label="North Star Metric"
-          placeholder="The one number that tells you it's working (e.g. '500 paying schools', '10 enterprise customers', '3 contracts signed')"
-          value={goal.north_star_metric}
-          onChange={(v) => onChange('north_star_metric', v)}
-          rows={1}
-          mono
-        />
-        <Field
-          label="Constraints & Context"
-          placeholder="What are the real-world limits? Team size, funding stage, timeline pressure, key dependencies, risks, or anything else that shapes what's actually possible right now."
-          value={goal.constraints_context ?? ''}
-          onChange={(v) => onChange('constraints_context', v)}
-          rows={2}
-        />
+        {[
+          { key: 'goal_statement' as keyof Goal, label: 'Goal', placeholder: `What do you want to achieve with ${pillar}?`, rows: 3 },
+          { key: 'success_criteria' as keyof Goal, label: 'Success looks like', placeholder: 'Describe the future state concretely.', rows: 2 },
+          { key: 'north_star_metric' as keyof Goal, label: 'North Star Metric', placeholder: 'The one number that tells you it\'s working', rows: 1, mono: true },
+          { key: 'constraints_context' as keyof Goal, label: 'Constraints & Context', placeholder: 'Real-world limits, team size, key risks…', rows: 2 },
+        ].map(({ key, label, placeholder, rows, mono }) => (
+          <div key={key} className="px-5 py-3">
+            <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wider mb-1.5">{label}</p>
+            <textarea
+              value={(goal[key] as string) ?? ''}
+              onChange={(e) => onChange(key, e.target.value)}
+              placeholder={placeholder}
+              rows={rows}
+              className={`w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed ${mono ? 'font-mono' : ''}`}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-function Field({
-  label,
-  placeholder,
-  value,
-  onChange,
-  rows,
-  mono,
-}: {
-  label: string
-  placeholder: string
-  value: string
-  onChange: (v: string) => void
-  rows: number
-  mono?: boolean
+// ─── Pillar Action Card ───────────────────────────────────────────────────────
+function PillarCard({ data, onAddTask }: {
+  data: PillarStatus
+  onAddTask: (title: string, pillar: string) => Promise<void>
 }) {
+  const colors = PILLAR_COLORS[data.pillar]
+  const momentum = MOMENTUM_META[data.momentum] ?? MOMENTUM_META.steady
+  const [adding, setAdding] = useState<string | null>(null)
+  const [added, setAdded] = useState<Set<string>>(new Set())
+
+  const handleAdd = async (title: string) => {
+    setAdding(title)
+    await onAddTask(title, data.pillar)
+    setAdded((prev) => new Set(prev).add(title))
+    setAdding(null)
+  }
+
   return (
-    <div className="px-5 py-3">
-      <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wider mb-1.5">{label}</p>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className={`w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed ${mono ? 'font-mono' : ''}`}
-      />
+    <div className={`bg-white border ${colors.border} rounded-2xl overflow-hidden shadow-sm flex flex-col`}>
+      {/* Pillar header */}
+      <div className={`px-5 py-4 ${colors.bg} border-b ${colors.accent}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl">{colors.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#1A1A1A] truncate">{data.pillar}</p>
+            <p className={`text-xs px-2 py-0.5 rounded-full border inline-flex items-center gap-1 mt-1 font-medium ${momentum.color}`}>
+              <span className="text-base leading-none">{momentum.icon}</span>
+              {momentum.label}
+            </p>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div className="mt-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-[#6B6B6B]">Task completion</span>
+            <span className={`text-xs font-semibold ${colors.text}`}>{data.progress_pct}%</span>
+          </div>
+          <div className="h-1.5 bg-white/70 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${colors.bar} rounded-full transition-all duration-700`}
+              style={{ width: `${data.progress_pct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Momentum note */}
+      <div className="px-5 py-3 border-b border-[#F5F3EE]">
+        <p className="text-xs text-[#6B6B6B] leading-relaxed">{data.momentum_note}</p>
+      </div>
+
+      {/* Top 3 actions */}
+      <div className="flex-1 divide-y divide-[#F5F3EE]">
+        {data.actions.slice(0, 3).map((action, i) => {
+          const urgency = URGENCY_META[action.urgency] ?? URGENCY_META.medium
+          const isAdded = added.has(action.title)
+          const isAdding = adding === action.title
+          return (
+            <div key={i} className="px-5 py-3 flex items-start gap-3 group">
+              <div className="flex flex-col items-center gap-1 pt-0.5 flex-shrink-0">
+                <span className="text-xs font-bold text-[#C4BFB5]">{i + 1}</span>
+                <span className={`w-2 h-2 rounded-full ${urgency.dot} flex-shrink-0`} title={urgency.label} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{action.title}</p>
+                <p className="text-xs text-[#9CA3AF] mt-0.5 leading-relaxed">{action.description}</p>
+              </div>
+              <button
+                onClick={() => handleAdd(action.title)}
+                disabled={isAdding || isAdded}
+                title={isAdded ? 'Added to Tasks' : 'Add as Task'}
+                className={`flex-shrink-0 mt-0.5 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-all ${
+                  isAdded
+                    ? 'bg-green-50 text-green-600 border-green-200 cursor-default'
+                    : 'bg-white border-[#E3E0D8] text-[#6B6B6B] hover:bg-[#D4622A] hover:text-white hover:border-[#D4622A] opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {isAdding ? (
+                  <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                ) : isAdded ? (
+                  <>✓ Added</>
+                ) : (
+                  <>+ Task</>
+                )}
+              </button>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// ─── Signals Feed ─────────────────────────────────────────────────────────────
+// ─── Signal Badge ─────────────────────────────────────────────────────────────
 function SignalBadge({ type }: { type: string }) {
   const meta = SIGNAL_META[type] ?? { label: type, color: 'bg-[#F5F3EE] text-[#6B6B6B]', icon: '•' }
   return (
     <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${meta.color}`}>
-      <span>{meta.icon}</span>
-      {meta.label}
+      <span>{meta.icon}</span>{meta.label}
     </span>
   )
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MirrorSection() {
-  const [tab, setTab] = useState<MirrorTab>('intent')
+  const [tab, setTab] = useState<MirrorTab>('coach')
   const [goals, setGoals] = useState<Record<string, Goal>>({})
   const [pendingGoals, setPendingGoals] = useState<Record<string, Goal>>({})
   const [savingPillars, setSavingPillars] = useState<Set<string>>(new Set())
@@ -170,8 +231,10 @@ export default function MirrorSection() {
   const [assessment, setAssessment] = useState('')
   const [lastAssessedAt, setLastAssessedAt] = useState<string | null>(null)
   const [assessing, setAssessing] = useState(false)
-
-  // Vision (stored as 'vision' pillar)
+  const [actions, setActions] = useState<ActionsPayload | null>(null)
+  const [actionsLoading, setActionsLoading] = useState(false)
+  const [actionsAt, setActionsAt] = useState<string | null>(null)
+  const [showFullAssessment, setShowFullAssessment] = useState(false)
   const [vision, setVision] = useState('')
   const debouncedVision = useDebounce(vision, 1500)
   const visionSaved = useRef(false)
@@ -193,27 +256,24 @@ export default function MirrorSection() {
     setSignals(Array.isArray(data) ? data : [])
   }, [])
 
-  const loadLastAssessment = useCallback(async () => {
-    // We don't have a dedicated endpoint, but we can check via a simple workaround:
-    // Try to load the latest assessment from the assess API's saved output
-    // For now we track it in local state across sessions via localStorage
-    const saved = localStorage.getItem('mirror_last_assessment')
-    if (saved) {
-      try {
-        const { content, at } = JSON.parse(saved)
-        setAssessment(content)
-        setLastAssessedAt(at)
-      } catch {}
-    }
+  const loadCached = useCallback(() => {
+    try {
+      const savedAssessment = localStorage.getItem('mirror_last_assessment')
+      if (savedAssessment) {
+        const { content, at } = JSON.parse(savedAssessment)
+        setAssessment(content); setLastAssessedAt(at)
+      }
+      const savedActions = localStorage.getItem('mirror_last_actions')
+      if (savedActions) {
+        const parsed: ActionsPayload = JSON.parse(savedActions)
+        setActions(parsed)
+        setActionsAt(parsed.generated_at)
+      }
+    } catch {}
   }, [])
 
-  useEffect(() => {
-    loadGoals()
-    loadSignals()
-    loadLastAssessment()
-  }, [loadGoals, loadSignals, loadLastAssessment])
+  useEffect(() => { loadGoals(); loadSignals(); loadCached() }, [loadGoals, loadSignals, loadCached])
 
-  // Auto-save vision
   useEffect(() => {
     if (!visionSaved.current) { visionSaved.current = true; return }
     fetch('/api/mirror/goals', {
@@ -223,9 +283,7 @@ export default function MirrorSection() {
     })
   }, [debouncedVision])
 
-  // Auto-save pillar goals with debounce
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-
   const handleGoalChange = (pillar: string, field: keyof Goal, value: string) => {
     setPendingGoals((prev) => ({
       ...prev,
@@ -253,16 +311,28 @@ export default function MirrorSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'manual_checkin', content: checkin.trim(), pillar: checkinPillar || null }),
     })
-    setCheckin('')
-    setCheckinPillar('')
-    setCheckinSaving(false)
+    setCheckin(''); setCheckinPillar(''); setCheckinSaving(false)
     loadSignals()
+  }
+
+  const runActions = async () => {
+    setActionsLoading(true)
+    setActions(null)
+    try {
+      const res = await fetch('/api/mirror/actions', { method: 'POST' })
+      const data: ActionsPayload = await res.json()
+      setActions(data)
+      setActionsAt(data.generated_at)
+      localStorage.setItem('mirror_last_actions', JSON.stringify(data))
+    } finally {
+      setActionsLoading(false)
+    }
   }
 
   const runAssessment = async () => {
     setAssessing(true)
     setAssessment('')
-    setTab('coach')
+    setShowFullAssessment(true)
     let full = ''
     try {
       const res = await fetch('/api/mirror/assess', { method: 'POST' })
@@ -284,10 +354,56 @@ export default function MirrorSection() {
     }
   }
 
+  const runBoth = async () => {
+    setActionsLoading(true)
+    setActions(null)
+    setAssessing(true)
+    setAssessment('')
+    // Run both in parallel
+    const [actionsRes] = await Promise.all([
+      fetch('/api/mirror/actions', { method: 'POST' }),
+    ])
+    const actionsData: ActionsPayload = await actionsRes.json()
+    setActions(actionsData)
+    setActionsAt(actionsData.generated_at)
+    localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+    setActionsLoading(false)
+
+    // Stream assessment
+    const res = await fetch('/api/mirror/assess', { method: 'POST' })
+    if (!res.body) { setAssessing(false); return }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let full = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      full += chunk
+      setAssessment((prev) => prev + chunk)
+    }
+    const now = new Date().toISOString()
+    setLastAssessedAt(now)
+    localStorage.setItem('mirror_last_assessment', JSON.stringify({ content: full, at: now }))
+    setAssessing(false)
+  }
+
+  const addTask = async (title: string, pillar: string) => {
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, pillar, status: 'todo', source: 'mirror' }),
+    })
+  }
+
   const goalsFilledCount = PILLARS.filter((p) => {
     const g = pendingGoals[p] ?? goals[p]
     return g?.goal_statement?.trim()
   }).length
+
+  const isRunning = actionsLoading || assessing
+  const hasData = actions !== null
+  const runAt = actionsAt ?? lastAssessedAt
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#FAF9F6]">
@@ -303,17 +419,17 @@ export default function MirrorSection() {
               </span>
             )}
           </div>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">Define your goals · run an assessment · track your momentum</p>
+          <p className="text-xs text-[#9CA3AF] mt-0.5">Define your goals · see where you stand · take action</p>
         </div>
         <button
-          onClick={runAssessment}
-          disabled={assessing}
+          onClick={runBoth}
+          disabled={isRunning}
           className="flex items-center gap-1.5 bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
         >
-          {assessing ? (
-            <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Assessing…</>
+          {isRunning ? (
+            <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Analyzing…</>
           ) : (
-            <>🔮 Run Assessment</>
+            <>⚡ Run Assessment</>
           )}
         </button>
       </div>
@@ -321,17 +437,15 @@ export default function MirrorSection() {
       {/* Sub-nav */}
       <div className="flex items-center gap-1 px-6 py-2 border-b border-[#E3E0D8] bg-white flex-shrink-0">
         {([
-          { id: 'intent', label: 'Intent', icon: '🎯', desc: 'Your goals' },
-          { id: 'coach', label: 'Coach', icon: '🔮', desc: lastAssessedAt ? `Last run ${new Date(lastAssessedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Not yet run' },
+          { id: 'coach', label: 'Coach', icon: '🔮', desc: runAt ? `Last run ${new Date(runAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Not yet run' },
+          { id: 'intent', label: 'Intent', icon: '🎯', desc: `${goalsFilledCount}/3 pillars` },
           { id: 'signals', label: 'Signals', icon: '📶', desc: `${signals.length} captured` },
         ] as { id: MirrorTab; label: string; icon: string; desc: string }[]).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
-              tab === t.id
-                ? 'bg-[#1A1A1A] text-white font-medium'
-                : 'text-[#6B6B6B] hover:bg-[#F5F3EE] hover:text-[#1A1A1A]'
+              tab === t.id ? 'bg-[#1A1A1A] text-white font-medium' : 'text-[#6B6B6B] hover:bg-[#F5F3EE] hover:text-[#1A1A1A]'
             }`}
           >
             <span>{t.icon}</span>
@@ -341,14 +455,147 @@ export default function MirrorSection() {
         ))}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto">
+
+        {/* ── COACH TAB ──────────────────────────────────────────── */}
+        {tab === 'coach' && (
+          <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+
+            {/* Empty state */}
+            {!hasData && !isRunning && (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <span className="text-5xl mb-4">🔮</span>
+                <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">Run your first assessment</h2>
+                <p className="text-sm text-[#9CA3AF] max-w-sm mb-6">
+                  The coach reads your goals, activity signals, task data, and recent reports —
+                  then shows you where you stand and the top 3 moves per pillar.
+                </p>
+                {goalsFilledCount === 0 && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg mb-4">
+                    Tip: Define your goals in the Intent tab first for a richer assessment.
+                  </p>
+                )}
+                <button
+                  onClick={runBoth}
+                  className="bg-[#D4622A] hover:bg-[#C05520] text-white text-sm font-medium py-2.5 px-6 rounded-lg transition-colors"
+                >
+                  ⚡ Run Assessment
+                </button>
+              </div>
+            )}
+
+            {/* Loading skeleton */}
+            {(actionsLoading && !actions) && (
+              <div className="space-y-4">
+                <div className="h-20 bg-white border border-[#E3E0D8] rounded-2xl animate-pulse" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[0,1,2].map((i) => <div key={i} className="h-72 bg-white border border-[#E3E0D8] rounded-2xl animate-pulse" />)}
+                </div>
+              </div>
+            )}
+
+            {/* Actions content */}
+            {actions && (
+              <>
+                {/* Focus today banner */}
+                <div className="bg-[#1A1A1A] rounded-2xl px-6 py-5 flex items-center gap-4">
+                  <span className="text-2xl flex-shrink-0">⚡</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Focus Today</p>
+                    <p className="text-white font-medium text-sm leading-relaxed">{actions.focus_today}</p>
+                  </div>
+                  {runAt && (
+                    <p className="text-xs text-white/30 flex-shrink-0">
+                      {new Date(runAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                    </p>
+                  )}
+                </div>
+
+                {/* Vision pulse (if set) */}
+                {vision && (
+                  <div className="bg-white border border-[#E3E0D8] rounded-xl px-5 py-4 flex items-start gap-3">
+                    <span className="text-lg flex-shrink-0 mt-0.5">🌟</span>
+                    <div>
+                      <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">Your Vision</p>
+                      <p className="text-sm text-[#374151] leading-relaxed">{vision}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pillar cards */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Status & Top Actions</h2>
+                    <p className="text-xs text-[#C4BFB5]">Hover an action to add it as a Task</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {actions.pillars.map((pillar) => (
+                      <PillarCard key={pillar.pillar} data={pillar} onAddTask={addTask} />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-4 px-1">
+                  <p className="text-xs text-[#C4BFB5]">Urgency:</p>
+                  {Object.entries(URGENCY_META).map(([k, v]) => (
+                    <span key={k} className="flex items-center gap-1.5 text-xs text-[#9CA3AF]">
+                      <span className={`w-2 h-2 rounded-full ${v.dot}`} />{v.label}
+                    </span>
+                  ))}
+                  <p className="ml-4 text-xs text-[#C4BFB5]">Momentum:</p>
+                  {Object.entries(MOMENTUM_META).map(([k, v]) => (
+                    <span key={k} className={`text-xs px-2 py-0.5 rounded-full border font-medium ${v.color}`}>
+                      {v.icon} {v.label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Full assessment toggle */}
+                <div className="border-t border-[#E3E0D8] pt-6">
+                  <button
+                    onClick={() => setShowFullAssessment((v) => !v)}
+                    className="flex items-center gap-2 text-sm text-[#6B6B6B] hover:text-[#1A1A1A] transition-colors"
+                  >
+                    <span className={`transition-transform ${showFullAssessment ? 'rotate-90' : ''}`}>▶</span>
+                    {showFullAssessment ? 'Hide' : 'Show'} full coaching assessment
+                    {lastAssessedAt && !assessing && (
+                      <span className="text-xs text-[#C4BFB5]">
+                        · {new Date(lastAssessedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                      </span>
+                    )}
+                  </button>
+
+                  {showFullAssessment && (
+                    <div className="mt-4 bg-white border border-[#E3E0D8] rounded-2xl px-8 py-8 shadow-sm">
+                      {assessment ? (
+                        <ReportDisplay content={assessment} streaming={assessing} />
+                      ) : assessing ? (
+                        <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+                          <span className="w-4 h-4 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+                          Generating assessment…
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[#9CA3AF]">No assessment yet. Run Assessment to generate one.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* If no actions but assessment is streaming */}
+            {!actions && !actionsLoading && assessing && (
+              <div className="bg-white border border-[#E3E0D8] rounded-2xl px-8 py-8 shadow-sm">
+                <ReportDisplay content={assessment} streaming={assessing} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── INTENT TAB ─────────────────────────────────────────── */}
         {tab === 'intent' && (
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-
-            {/* Vision */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-base">🌟</span>
@@ -359,14 +606,12 @@ export default function MirrorSection() {
                 <textarea
                   value={vision}
                   onChange={(e) => setVision(e.target.value)}
-                  placeholder="What is Intellina AI ultimately trying to achieve? Write the vision as if you're describing it 5 years from now — what does the world look like because Intellina exists?"
+                  placeholder="What is Intellina AI ultimately trying to achieve? Write the vision as if you're describing it 5 years from now."
                   rows={4}
                   className="w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed"
                 />
               </div>
             </div>
-
-            {/* Pillar goals */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Goals</h2>
@@ -374,12 +619,9 @@ export default function MirrorSection() {
               </div>
               <div className="space-y-5">
                 {PILLARS.map((pillar) => {
-                  const g = pendingGoals[pillar] ?? goals[pillar] ?? { pillar, goal_statement: '', success_criteria: '', north_star_metric: '', updated_at: '' }
+                  const g = pendingGoals[pillar] ?? goals[pillar] ?? { pillar, goal_statement: '', success_criteria: '', north_star_metric: '', constraints_context: '', updated_at: '' }
                   return (
-                    <GoalCard
-                      key={pillar}
-                      pillar={pillar}
-                      goal={g}
+                    <GoalCard key={pillar} pillar={pillar} goal={g}
                       onChange={(field, value) => handleGoalChange(pillar, field, value)}
                       saving={savingPillars.has(pillar)}
                     />
@@ -387,68 +629,17 @@ export default function MirrorSection() {
                 })}
               </div>
             </div>
-
             {goalsFilledCount === 3 && (
               <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
                 <span className="text-green-600 text-lg">✓</span>
                 <div>
                   <p className="text-sm font-medium text-green-800">All 3 pillars defined</p>
-                  <p className="text-xs text-green-600 mt-0.5">
-                    Run an assessment to see your progress, gaps, and what to focus on.
-                  </p>
+                  <p className="text-xs text-green-600 mt-0.5">Run an assessment to see your progress, gaps, and top actions.</p>
                 </div>
-                <button
-                  onClick={runAssessment}
-                  disabled={assessing}
-                  className="ml-auto text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                >
+                <button onClick={runBoth} disabled={isRunning}
+                  className="ml-auto text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">
                   Run Assessment →
                 </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── COACH TAB ──────────────────────────────────────────── */}
-        {tab === 'coach' && (
-          <div className="max-w-3xl mx-auto px-6 py-8">
-            {!assessment && !assessing ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <span className="text-5xl mb-4">🔮</span>
-                <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">No assessment yet</h2>
-                <p className="text-sm text-[#9CA3AF] max-w-xs mb-6">
-                  The coach reads your goals, activity signals, tasks, and recent reports — then tells you where you're making progress, where you're drifting, and what to focus on.
-                </p>
-                {goalsFilledCount === 0 && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg mb-4">
-                    Tip: Define your goals in the Intent tab first for a richer assessment. The coach can also work from your activity alone.
-                  </p>
-                )}
-                <button
-                  onClick={runAssessment}
-                  className="bg-[#D4622A] hover:bg-[#C05520] text-white text-sm font-medium py-2.5 px-6 rounded-lg transition-colors"
-                >
-                  🔮 Run my first assessment
-                </button>
-              </div>
-            ) : (
-              <div>
-                {lastAssessedAt && !assessing && (
-                  <div className="flex items-center justify-between mb-6">
-                    <p className="text-xs text-[#9CA3AF]">
-                      Assessment from {new Date(lastAssessedAt).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                    </p>
-                    <button
-                      onClick={runAssessment}
-                      className="text-xs text-[#D4622A] hover:underline"
-                    >
-                      Run again →
-                    </button>
-                  </div>
-                )}
-                <div className="bg-white border border-[#E3E0D8] rounded-2xl px-8 py-8 shadow-sm">
-                  <ReportDisplay content={assessment} streaming={assessing} />
-                </div>
               </div>
             )}
           </div>
@@ -457,8 +648,6 @@ export default function MirrorSection() {
         {/* ── SIGNALS TAB ────────────────────────────────────────── */}
         {tab === 'signals' && (
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-
-            {/* Manual check-in */}
             <div>
               <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">Manual Check-in</h2>
               <div className="bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm">
@@ -466,41 +655,32 @@ export default function MirrorSection() {
                   value={checkin}
                   onChange={(e) => setCheckin(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitCheckin() }}
-                  placeholder="What happened today? What moved? What's blocking you? What surprised you? (⌘+Enter to save)"
+                  placeholder="What happened today? What moved? What's blocking you? (⌘+Enter to save)"
                   rows={3}
                   className="w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed mb-3"
                 />
                 <div className="flex items-center gap-2">
-                  <select
-                    value={checkinPillar}
-                    onChange={(e) => setCheckinPillar(e.target.value)}
-                    className="text-xs text-[#6B6B6B] bg-[#F5F3EE] border border-[#E3E0D8] rounded-lg px-2 py-1.5 focus:outline-none"
-                  >
+                  <select value={checkinPillar} onChange={(e) => setCheckinPillar(e.target.value)}
+                    className="text-xs text-[#6B6B6B] bg-[#F5F3EE] border border-[#E3E0D8] rounded-lg px-2 py-1.5 focus:outline-none">
                     <option value="">No pillar tag</option>
                     {PILLARS.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <button
-                    onClick={submitCheckin}
-                    disabled={!checkin.trim() || checkinSaving}
-                    className="ml-auto bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1.5 px-4 rounded-lg transition-colors"
-                  >
+                  <button onClick={submitCheckin} disabled={!checkin.trim() || checkinSaving}
+                    className="ml-auto bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1.5 px-4 rounded-lg transition-colors">
                     {checkinSaving ? 'Saving…' : 'Save signal'}
                   </button>
                 </div>
               </div>
             </div>
-
-            {/* Signal feed */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Activity Feed</h2>
                 <span className="text-xs text-[#C4BFB5]">{signals.length} signals · used in next assessment</span>
               </div>
-
               {signals.length === 0 ? (
                 <div className="bg-white border border-dashed border-[#E3E0D8] rounded-xl p-8 text-center">
                   <p className="text-sm text-[#9CA3AF]">No signals yet.</p>
-                  <p className="text-xs text-[#C4BFB5] mt-1">Signals are captured automatically as you use the app, or you can add them manually above.</p>
+                  <p className="text-xs text-[#C4BFB5] mt-1">Signals are captured automatically as you use the app.</p>
                 </div>
               ) : (
                 <div className="bg-white border border-[#E3E0D8] rounded-xl shadow-sm divide-y divide-[#F5F3EE]">
@@ -525,7 +705,6 @@ export default function MirrorSection() {
                 </div>
               )}
             </div>
-
             <p className="text-xs text-[#C4BFB5] text-center pb-4">
               Signals are automatically captured when you generate reports, complete tasks, save notes, start chats, and run research.
             </p>
