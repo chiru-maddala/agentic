@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "IntelliRadar — Intellina AI Daily Intelligence",
   description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   openGraph: {
     title: "IntelliRadar — Intellina AI Daily Intelligence",
     description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
