@@ -127,19 +127,94 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
   return 'Unknown tool'
 }
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Attachment = {
+  name: string
+  mediaType: string   // e.g. 'application/pdf' | 'image/png'
+  data: string        // base64-encoded content
+}
+
+// Build Anthropic content blocks for the current user turn (text + attachments)
+function buildUserContent(
+  text: string,
+  attachments: Attachment[],
+): Anthropic.ContentBlockParam[] {
+  const blocks: Anthropic.ContentBlockParam[] = []
+
+  for (const att of attachments) {
+    if (att.mediaType === 'application/pdf') {
+      blocks.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: att.data },
+        title: att.name,
+      } as Anthropic.DocumentBlockParam)
+    } else if (att.mediaType.startsWith('image/')) {
+      blocks.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: att.mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+          data: att.data,
+        },
+      } as Anthropic.ImageBlockParam)
+    }
+  }
+
+  if (text.trim()) {
+    blocks.push({ type: 'text', text })
+  }
+
+  return blocks
+}
+
+// Auto-capture substantive user messages as mirror signals so the Strategic
+// Mirror Coach has visibility into what the CEO is thinking and discussing.
+async function captureAsChatSignal(
+  supabase: ReturnType<typeof getSupabase>,
+  message: string,
+  sessionId: string,
+) {
+  // Only log messages that are substantive reflections, not short questions
+  if (message.length < 80) return
+  const firstWord = message.trim().split(/\s/)[0].toLowerCase().replace(/[^a-z]/g, '')
+  const questionStarters = new Set(['what', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'could', 'would', 'should', 'is', 'are', 'do', 'does', 'did'])
+  if (questionStarters.has(firstWord)) return
+
+  void supabase.from('mirror_signals').insert({
+    type: 'chat_insight',
+    content: message.slice(0, 500),
+    pillar: null,
+    metadata: { session_id: sessionId, source: 'chat' },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function POST(
   req: Request,
   ctx: RouteContext<'/api/chat/[id]/message'>
 ) {
   const supabase = getSupabase()
   const { id: sessionId } = await ctx.params
-  const { message, pageContext } = await req.json()
+  const { message, pageContext, attachments = [] } = await req.json() as {
+    message: string
+    pageContext?: string
+    attachments?: Attachment[]
+  }
 
+  // Persist the user message (text only — attachments are ephemeral per-turn)
+  const attachmentNote = attachments.length > 0
+    ? `\n\n[Attachments: ${attachments.map((a) => a.name).join(', ')}]`
+    : ''
   await supabase.from('chat_messages').insert({
     session_id: sessionId,
     role: 'user',
-    content: message,
+    content: message + attachmentNote,
   })
+
+  // Capture substantive messages as mirror signals (fire-and-forget)
+  void captureAsChatSignal(supabase, message, sessionId)
 
   const { data: reports } = await supabase
     .from('reports')
@@ -178,13 +253,28 @@ export async function POST(
     (pageContext ? `\n\n**Current page context:** The user is currently on the ${pageContext}` : '') +
     reportsContext
 
-  // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT)
-  const baseMessages: Anthropic.MessageParam[] = (history ?? [])
-    .reverse()
-    .map((m) => ({
+  // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT).
+  // The history already includes the user's just-saved message (text only).
+  // If there are attachments, we replace the last user message in the array with
+  // a rich content-block version so Claude receives the files in this turn.
+  const historyChronological = (history ?? []).reverse()
+  const baseMessages: Anthropic.MessageParam[] = historyChronological.map((m, i) => {
+    const isLastUserMessage =
+      attachments.length > 0 &&
+      i === historyChronological.length - 1 &&
+      m.role === 'user'
+
+    if (isLastUserMessage) {
+      return {
+        role: 'user',
+        content: buildUserContent(message, attachments),
+      }
+    }
+    return {
       role: m.role as 'user' | 'assistant',
       content: m.content,
-    }))
+    }
+  })
 
   const client = new Anthropic()
   const encoder = new TextEncoder()

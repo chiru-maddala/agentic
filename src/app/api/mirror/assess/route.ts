@@ -42,13 +42,19 @@ export async function POST() {
       : 'No goals defined yet.'
 
   // Signals context
-  // Separate auto-extracted report insights from manual check-ins so the coach
-  // can distinguish observed intelligence from self-reported activity.
+  // Separate signals by source so the coach understands data provenance:
+  // - report_insight / report_strategic → extracted from daily AI intelligence reports
+  // - chat_insight → things the CEO said or expressed in chat sessions
+  // - everything else → manual check-ins entered directly in the Mirror
   const reportInsights = signals.filter((s) =>
     s.type === 'report_insight' || s.type === 'report_strategic'
   )
+  const chatInsights = signals.filter((s) => s.type === 'chat_insight')
   const activitySignals = signals.filter((s) =>
-    s.type !== 'report_insight' && s.type !== 'report_strategic' && s.type !== 'report_generated'
+    s.type !== 'report_insight' &&
+    s.type !== 'report_strategic' &&
+    s.type !== 'report_generated' &&
+    s.type !== 'chat_insight'
   )
 
   const formatSignal = (s: typeof signals[number]) =>
@@ -57,6 +63,9 @@ export async function POST() {
   const signalsContext = [
     reportInsights.length > 0
       ? `### Intelligence from Recent Reports\n${reportInsights.map(formatSignal).join('\n')}`
+      : '',
+    chatInsights.length > 0
+      ? `### CEO's Own Words (from Chat Sessions)\n${chatInsights.map(formatSignal).join('\n')}`
       : '',
     activitySignals.length > 0
       ? `### Manual Activity Signals\n${activitySignals.map(formatSignal).join('\n')}`
@@ -99,11 +108,12 @@ export async function POST() {
 
 Your job is to give an honest, specific, and actionable coaching assessment. Not a summary — a mirror. Name what you see. Call out the gaps without being harsh. Point to the highest-leverage moves. Ground every observation in the actual signals and data you have — never be vague, never be generic.
 
-You have two types of signals available:
+You have three types of signals available:
 - **Intelligence from Recent Reports**: AI landscape insights auto-extracted from daily research reports, tagged by pillar. These represent external signals — what's happening in the world that is relevant to Intellina.
-- **Manual Activity Signals**: Self-reported check-ins and updates from Chiru — what he has actually been doing, deciding, or experiencing.
+- **CEO's Own Words (from Chat Sessions)**: Statements Chiru has made in chat conversations — his thinking, concerns, ideas, and reflections expressed in his own words. These are often the richest signal of what's really on his mind.
+- **Manual Activity Signals**: Self-reported check-ins and updates entered directly in the Mirror.
 
-Use both in combination. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the manual signals show about actual activity, name it explicitly. That gap is where the coaching is.
+Use all three in combination. Pay special attention to what Chiru says in his own words from chat — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the activity/chat signals show, name it explicitly. That gap is where the coaching is.
 
 If goals are not yet defined, work from the activity signals to infer what Chiru seems to be prioritising, and note explicitly that the goals need to be set.`
 

@@ -5,6 +5,39 @@ import ReportDisplay from './ReportDisplay'
 
 type Session = { id: string; title: string; created_at: string }
 type Message = { id: string; role: 'user' | 'assistant'; content: string }
+type Attachment = { name: string; mediaType: string; data: string }
+
+const ACCEPTED_TYPES = 'application/pdf,image/png,image/jpeg,image/gif,image/webp'
+const MAX_FILE_MB = 10
+
+async function fileToAttachment(file: File): Promise<Attachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      // strip "data:<mediaType>;base64," prefix
+      const base64 = dataUrl.split(',')[1]
+      resolve({ name: file.name, mediaType: file.type, data: base64 })
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function AttachmentChip({ name, onRemove }: { name: string; onRemove: () => void }) {
+  const isPdf = name.toLowerCase().endsWith('.pdf')
+  return (
+    <span className="inline-flex items-center gap-1.5 bg-[#E8E4DC] text-[#1A1A1A] text-xs rounded-lg px-2.5 py-1.5 font-medium">
+      <span>{isPdf ? '📄' : '🖼️'}</span>
+      <span className="max-w-[120px] truncate">{name}</span>
+      <button
+        onClick={onRemove}
+        className="text-[#6B6B6B] hover:text-red-500 transition-colors ml-0.5"
+        aria-label={`Remove ${name}`}
+      >✕</button>
+    </span>
+  )
+}
 
 export default function ChatSection() {
   const [sessions, setSessions] = useState<Session[]>([])
@@ -13,7 +46,28 @@ export default function ChatSection() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [showList, setShowList] = useState(true)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachError, setAttachError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files) return
+    setAttachError('')
+    const toAdd: Attachment[] = []
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_MB * 1024 * 1024) {
+        setAttachError(`"${file.name}" exceeds ${MAX_FILE_MB} MB limit.`)
+        continue
+      }
+      try {
+        toAdd.push(await fileToAttachment(file))
+      } catch {
+        setAttachError(`Failed to read "${file.name}".`)
+      }
+    }
+    setAttachments((prev) => [...prev, ...toAdd])
+  }
 
   const loadSessions = useCallback(async () => {
     const res = await fetch('/api/chat')
@@ -50,19 +104,27 @@ export default function ChatSection() {
   }
 
   const sendMessage = async () => {
-    if (!input.trim() || !activeSession || streaming) return
+    if ((!input.trim() && attachments.length === 0) || !activeSession || streaming) return
     const text = input.trim()
+    const currentAttachments = [...attachments]
     const userId = crypto.randomUUID()
     const assistantId = crypto.randomUUID()
     setInput('')
-    setMessages((prev) => [...prev, { id: userId, role: 'user', content: text }])
+    setAttachments([])
+    setAttachError('')
+
+    // Show attached file names in the user bubble
+    const attachNote = currentAttachments.length > 0
+      ? `\n📎 ${currentAttachments.map((a) => a.name).join(', ')}`
+      : ''
+    setMessages((prev) => [...prev, { id: userId, role: 'user', content: text + attachNote }])
     setStreaming(true)
     setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
 
     const res = await fetch(`/api/chat/${activeSession.id}/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, attachments: currentAttachments }),
     })
 
     if (!res.body) { setStreaming(false); return }
@@ -180,7 +242,44 @@ export default function ChatSection() {
             </div>
 
             <div className="p-4 border-t border-[#E3E0D8] bg-[#FAF9F6]">
-              <div className="flex gap-2">
+              {/* Attachment chips */}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {attachments.map((a, i) => (
+                    <AttachmentChip
+                      key={i}
+                      name={a.name}
+                      onRemove={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                    />
+                  ))}
+                </div>
+              )}
+              {attachError && (
+                <p className="text-xs text-red-500 mb-1.5">{attachError}</p>
+              )}
+
+              <div className="flex gap-2 items-end">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_TYPES}
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+                {/* Paperclip button */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={streaming}
+                  title="Attach PDF or image"
+                  className="flex-shrink-0 text-[#9CA3AF] hover:text-[#D4622A] disabled:opacity-40 transition-colors p-2 rounded-lg hover:bg-[#F0EDE6]"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </button>
+
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -190,6 +289,11 @@ export default function ChatSection() {
                       sendMessage()
                     }
                   }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    handleFiles(e.dataTransfer.files)
+                  }}
                   placeholder="Ask anything about AI, Intellina strategy, or your reports…"
                   rows={2}
                   disabled={streaming}
@@ -197,13 +301,15 @@ export default function ChatSection() {
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={streaming || !input.trim()}
+                  disabled={streaming || (!input.trim() && attachments.length === 0)}
                   className="bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors self-end"
                 >
                   {streaming ? '…' : 'Send'}
                 </button>
               </div>
-              <p className="text-xs text-[#9CA3AF] mt-1.5 ml-1">Press Enter to send · Shift+Enter for newline</p>
+              <p className="text-xs text-[#9CA3AF] mt-1.5 ml-1">
+                Press Enter to send · Shift+Enter for newline · Attach PDFs or images
+              </p>
             </div>
           </>
         )}
