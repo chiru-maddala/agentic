@@ -84,6 +84,27 @@ export default function ContextMenuWrapper({ children, onCourseCreated, showCour
     }
   }
 
+  const addToContentLab = async (type: 'article' | 'social') => {
+    if (!menu || busy) return
+    setBusy(true)
+    try {
+      const title = menu.text.split('\n')[0].slice(0, 100) || (type === 'article' ? 'New Article' : 'New Social Post')
+      const res = await fetch('/api/content-lab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, title, concept: menu.text }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      showToast(type === 'article' ? 'Added to Content Lab as Article ✓' : 'Added to Content Lab as Social Post ✓', true)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed', false)
+    } finally {
+      setBusy(false)
+      setMenu(null)
+    }
+  }
+
   const createCourse = async () => {
     if (!menu || busy) return
     setBusy(true)
@@ -128,6 +149,21 @@ export default function ContextMenuWrapper({ children, onCourseCreated, showCour
             className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
             <span>📝</span> Add to Notes
+          </button>
+          <div className="my-1 border-t border-[#E3E0D8]" />
+          <button
+            onClick={() => addToContentLab('article')}
+            disabled={busy}
+            className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
+          >
+            <span>✍️</span> Content Lab — Article
+          </button>
+          <button
+            onClick={() => addToContentLab('social')}
+            disabled={busy}
+            className="w-full text-left px-4 py-2 text-[#374151] hover:bg-[#F5F3EE] disabled:opacity-50 flex items-center gap-2 transition-colors"
+          >
+            <span>📣</span> Content Lab — Social Post
           </button>
           {showCourse && (
             <button
