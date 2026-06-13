@@ -42,15 +42,28 @@ export async function POST() {
       : 'No goals defined yet.'
 
   // Signals context
-  const signalsContext =
-    signals.length > 0
-      ? signals
-          .map(
-            (s) =>
-              `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] [${s.type}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
-          )
-          .join('\n')
-      : 'No signals recorded yet.'
+  // Separate auto-extracted report insights from manual check-ins so the coach
+  // can distinguish observed intelligence from self-reported activity.
+  const reportInsights = signals.filter((s) =>
+    s.type === 'report_insight' || s.type === 'report_strategic'
+  )
+  const activitySignals = signals.filter((s) =>
+    s.type !== 'report_insight' && s.type !== 'report_strategic' && s.type !== 'report_generated'
+  )
+
+  const formatSignal = (s: typeof signals[number]) =>
+    `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
+
+  const signalsContext = [
+    reportInsights.length > 0
+      ? `### Intelligence from Recent Reports\n${reportInsights.map(formatSignal).join('\n')}`
+      : '',
+    activitySignals.length > 0
+      ? `### Manual Activity Signals\n${activitySignals.map(formatSignal).join('\n')}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n') || 'No signals recorded yet.'
 
   // Task health
   const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
@@ -86,6 +99,12 @@ export async function POST() {
 
 Your job is to give an honest, specific, and actionable coaching assessment. Not a summary — a mirror. Name what you see. Call out the gaps without being harsh. Point to the highest-leverage moves. Ground every observation in the actual signals and data you have — never be vague, never be generic.
 
+You have two types of signals available:
+- **Intelligence from Recent Reports**: AI landscape insights auto-extracted from daily research reports, tagged by pillar. These represent external signals — what's happening in the world that is relevant to Intellina.
+- **Manual Activity Signals**: Self-reported check-ins and updates from Chiru — what he has actually been doing, deciding, or experiencing.
+
+Use both in combination. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the manual signals show about actual activity, name it explicitly. That gap is where the coaching is.
+
 If goals are not yet defined, work from the activity signals to infer what Chiru seems to be prioritising, and note explicitly that the goals need to be set.`
 
   const userPrompt = `Here is the full context for this assessment:
@@ -93,7 +112,7 @@ If goals are not yet defined, work from the activity signals to infer what Chiru
 ## STATED GOALS
 ${goalsContext}
 
-## ACTIVITY SIGNALS (recent, most recent first)
+## SIGNALS (recent, most recent first)
 ${signalsContext}
 
 ## TASK HEALTH BY PILLAR
@@ -101,9 +120,6 @@ ${taskSummary}
 
 ## ACTIVE TASKS (not yet done)
 ${recentTasks || 'None.'}
-
-## RECENT INTELLIGENCE REPORT TOPICS
-${reportContext}
 
 ---
 
