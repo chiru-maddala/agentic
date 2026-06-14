@@ -102,7 +102,7 @@ function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) =>
           title="Highlight"
           className={`p-1.5 rounded text-sm w-7 h-7 flex items-center justify-center transition-colors ${
             editor.isActive('highlight')
-              ? 'bg-[#FFD700] text-[#1A1A1A]'
+              ? 'bg-[#FFF176] text-[#1A1A1A]'
               : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#FFF9C4]'
           }`}
         >
@@ -364,7 +364,7 @@ export default function NotesSection() {
         .notes-tiptap .ProseMirror pre { background: #F5F3EE; border: 1px solid #E3E0D8; border-radius: 6px; padding: 1em; margin: 0.5em 0; }
         .notes-tiptap .ProseMirror pre code { background: none; color: #374151; padding: 0; }
         .notes-tiptap .ProseMirror img { max-width: 100%; border-radius: 6px; margin: 0.5em 0; }
-        .notes-tiptap .ProseMirror mark { background-color: #FFD700; color: #1A1A1A; border-radius: 2px; padding: 0.05em 0.1em; }
+        .notes-tiptap .ProseMirror mark { background-color: #FFF176; color: #1A1A1A; border-radius: 2px; padding: 0.05em 0.1em; }
         .notes-tiptap .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; }
         .notes-tiptap .ProseMirror table td, .notes-tiptap .ProseMirror table th {
           border: 1px solid #E3E0D8; padding: 0.5em 0.75em; text-align: left; min-width: 80px;
