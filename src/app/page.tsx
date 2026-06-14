@@ -103,6 +103,7 @@ export default function Home() {
   const [streaming, setStreaming] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [historyKey, setHistoryKey] = useState(0)
+  const [researchContext, setResearchContext] = useState<string>('research. Viewing the Research section.')
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [reportLinkCopied, setReportLinkCopied] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -483,7 +484,7 @@ export default function Home() {
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'graph' && <KnowledgeGraphSection />}
         {tab === 'mirror' && <MirrorSection />}
-        {tab === 'research' && <ResearchSection />}
+        {tab === 'research' && <ResearchSection onContextChange={setResearchContext} />}
         {tab !== 'chat' && (
           <FloatingChat
             pageContext={
@@ -491,7 +492,7 @@ export default function Home() {
               : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
               : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
               : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — goals, signals, and coaching assessment.'
-              : tab === 'research' ? 'research. Viewing the Research section.'
+              : tab === 'research' ? researchContext
               : tab === 'dashboard' ? 'dashboard. Viewing the main Dashboard overview.'
               : tab === 'courses' ? 'courses. Viewing the Presentations section.'
               : tab === 'contentlab' ? 'contentlab. Viewing the Content Lab.'

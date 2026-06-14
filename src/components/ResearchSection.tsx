@@ -14,7 +14,7 @@ type ResearchReport = {
   content?: string
 }
 
-export default function ResearchSection() {
+export default function ResearchSection({ onContextChange }: { onContextChange?: (ctx: string) => void }) {
   const [reports, setReports] = useState<ResearchReport[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [content, setContent] = useState('')
@@ -53,9 +53,11 @@ export default function ResearchSection() {
     setSources([])
     const res = await fetch(`/api/research/${id}`)
     const data = await res.json()
-    setContent(data.content ?? '')
+    const loaded = data.content ?? ''
+    setContent(loaded)
     setSources(data.sources ?? [])
-  }, [])
+    if (loaded) onContextChange?.(`research. Viewing research report "${data.title ?? 'Untitled'}". Content: ${loaded.slice(0, 1200)}`)
+  }, [onContextChange])
 
   const addUrl = () => {
     const trimmed = urlInput.trim()
