@@ -276,13 +276,18 @@ export async function POST(
     }
   })
 
+  // Guard: if history fetch returned nothing (race condition / DB latency), use the current message
+  const messagesForApi: Anthropic.MessageParam[] = baseMessages.length > 0
+    ? baseMessages
+    : [{ role: 'user', content: buildUserContent(message, attachments) }]
+
   const client = new Anthropic()
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
     async start(controller) {
       let allAssistantText = ''
-      let loopMessages: Anthropic.MessageParam[] = baseMessages
+      let loopMessages: Anthropic.MessageParam[] = messagesForApi
 
       try {
         let continueLoop = true
