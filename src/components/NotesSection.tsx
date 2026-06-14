@@ -10,6 +10,7 @@ import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableCell } from '@tiptap/extension-table-cell'
 import Placeholder from '@tiptap/extension-placeholder'
+import Highlight from '@tiptap/extension-highlight'
 
 type NoteMeta = { id: string; title: string; updated_at: string }
 type Note = NoteMeta & { content: string; created_at: string }
@@ -39,6 +40,7 @@ function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) =>
       TableHeader,
       TableCell,
       Placeholder.configure({ placeholder: 'Start writing…' }),
+      Highlight.configure({ multicolor: false }),
     ],
     content: toEditorHtml(note.content),
     onUpdate: ({ editor }) => {
@@ -95,6 +97,20 @@ function NoteEditor({ note, onSave }: { note: Note; onSave: (content: string) =>
         {btn(() => editor.chain().focus().toggleBold().run(), 'Bold', <b>B</b>, editor.isActive('bold'))}
         {btn(() => editor.chain().focus().toggleItalic().run(), 'Italic', <i>I</i>, editor.isActive('italic'))}
         {btn(() => editor.chain().focus().toggleStrike().run(), 'Strikethrough', <s>S</s>, editor.isActive('strike'))}
+        <button
+          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          title="Highlight"
+          className={`p-1.5 rounded text-sm w-7 h-7 flex items-center justify-center transition-colors ${
+            editor.isActive('highlight')
+              ? 'bg-[#FFD700] text-[#1A1A1A]'
+              : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#FFF9C4]'
+          }`}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
         <div className="w-px h-5 bg-[#E3E0D8] mx-1" />
         {btn(() => editor.chain().focus().toggleHeading({ level: 1 }).run(), 'H1', <span className="text-xs">H1</span>, editor.isActive('heading', { level: 1 }))}
         {btn(() => editor.chain().focus().toggleHeading({ level: 2 }).run(), 'H2', <span className="text-xs">H2</span>, editor.isActive('heading', { level: 2 }))}
@@ -348,6 +364,7 @@ export default function NotesSection() {
         .notes-tiptap .ProseMirror pre { background: #F5F3EE; border: 1px solid #E3E0D8; border-radius: 6px; padding: 1em; margin: 0.5em 0; }
         .notes-tiptap .ProseMirror pre code { background: none; color: #374151; padding: 0; }
         .notes-tiptap .ProseMirror img { max-width: 100%; border-radius: 6px; margin: 0.5em 0; }
+        .notes-tiptap .ProseMirror mark { background-color: #FFD700; color: #1A1A1A; border-radius: 2px; padding: 0.05em 0.1em; }
         .notes-tiptap .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1em 0; }
         .notes-tiptap .ProseMirror table td, .notes-tiptap .ProseMirror table th {
           border: 1px solid #E3E0D8; padding: 0.5em 0.75em; text-align: left; min-width: 80px;
