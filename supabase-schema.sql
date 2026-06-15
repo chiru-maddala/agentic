@@ -81,3 +81,14 @@ create table if not exists report_suggestions (
 
 alter table report_suggestions enable row level security;
 create policy "allow all" on report_suggestions for all using (true) with check (true);
+
+-- Podcast episodes table (The AI Sense)
+create table if not exists podcast_episodes (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  content text not null,
+  created_at timestamptz default now()
+);
+
+alter table podcast_episodes enable row level security;
+create policy "allow all" on podcast_episodes for all using (true) with check (true);
