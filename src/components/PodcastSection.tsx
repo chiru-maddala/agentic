@@ -18,6 +18,7 @@ export default function PodcastSection() {
   const [generating, setGenerating] = useState(false)
   const [showList, setShowList] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
   const loadEpisodes = useCallback(async () => {
@@ -156,6 +157,25 @@ export default function PodcastSection() {
                   })}
                 </span>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/share/podcast/${selectedId}`
+                      navigator.clipboard.writeText(url).then(() => {
+                        setLinkCopied(true)
+                        setTimeout(() => setLinkCopied(false), 2000)
+                      })
+                    }}
+                    className={`flex items-center gap-1.5 text-xs border px-2.5 py-1.5 rounded-lg transition-colors ${
+                      linkCopied
+                        ? 'text-green-700 bg-green-50 border-green-200'
+                        : 'text-[#6B6B6B] hover:text-[#1A1A1A] bg-white hover:bg-[#F5F3EE] border-[#E3E0D8]'
+                    }`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    {linkCopied ? 'Copied!' : 'Share'}
+                  </button>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(content).then(() => {
