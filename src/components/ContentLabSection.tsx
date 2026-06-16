@@ -31,11 +31,9 @@ const PLATFORMS = ['LinkedIn', 'Instagram', 'YouTube'] as const
 const PLATFORM_ICONS: Record<string, string> = { LinkedIn: '💼', Instagram: '📸', YouTube: '▶️' }
 
 const PILLARS = [
-  'AI Strategy',
-  'EdTech',
-  'Thought Leadership',
-  'Product',
-  'Research',
+  'Learning AI',
+  'Enterprise AI',
+  'AI Infrastructure',
 ]
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; dot: string }> = {
