@@ -70,7 +70,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       // Save generated content
       await supabase
         .from('content_lab')
-        .update({ generated_content: full, status: 'generated' })
+        .update({ generated_content: full, status: 'ready' })
         .eq('id', id)
 
       controller.close()
