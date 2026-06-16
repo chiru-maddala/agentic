@@ -421,12 +421,25 @@ function ContentPanel({
     setKwInput('')
   }
 
+  const [selectedPillar, setSelectedPillar] = useState<string>(item.pillar ?? '')
+
+  const savePillar = async (p: string) => {
+    setSelectedPillar(p)
+    await fetch(`/api/content-lab/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pillar: p || null }),
+    }).catch(() => {})
+    onSaved()
+  }
+
   const cfg = STATUS_CONFIG[item.status]
 
   return (
     <div className="flex flex-col h-full border-l border-[#E3E0D8] bg-white min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
+      <div className="px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
+        <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           {streaming ? (
             <span className="w-3 h-3 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin flex-shrink-0" />
@@ -514,6 +527,20 @@ function ContentPanel({
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
+        </div>
+        </div>
+        {/* Pillar selector */}
+        <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+          <span className="text-xs text-[#9CA3AF]">Pillar:</span>
+          {PILLARS.map((p) => (
+            <button
+              key={p}
+              onClick={() => savePillar(selectedPillar === p ? '' : p)}
+              className={`text-xs px-2.5 py-0.5 rounded-full border transition-all ${selectedPillar === p ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'border-[#E3E0D8] text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A]'}`}
+            >
+              {p}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -809,9 +836,8 @@ export default function ContentLabSection() {
             </div>
 
             {/* Pillar filter */}
-            {usedPillars.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {['All', ...usedPillars].map((p) => (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+                {['All', ...PILLARS].map((p) => (
                   <button
                     key={p}
                     onClick={() => setActivePillar(p)}
@@ -821,7 +847,6 @@ export default function ContentLabSection() {
                   </button>
                 ))}
               </div>
-            )}
 
             {/* Status filter */}
             <div className="flex gap-1.5 mb-4">
