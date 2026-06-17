@@ -195,62 +195,88 @@ function CompetitorList({ competitors, onSelect, onAdded }: {
   )
 }
 
-// ── Fetch Panel (split screen) ────────────────────────────────────────────────
-function FetchPanel({ cs, competitorId, onClose }: { cs: CaseStudy; competitorId: string; onClose: () => void }) {
-  const [content, setContent] = useState('')
-  const [loading, setLoading] = useState(true)
+// ── Markdown renderer (simple, no dependencies) ──────────────────────────────
+function SimpleMarkdown({ content }: { content: string }) {
+  const lines = content.split('\n')
+  const elements: React.ReactNode[] = []
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.startsWith('## ')) {
+      elements.push(
+        <h2 key={i} className="text-xs font-bold text-[#9CA3AF] uppercase tracking-widest mt-6 mb-2 first:mt-0">
+          {line.replace('## ', '')}
+        </h2>
+      )
+    } else if (line.startsWith('- ') || line.startsWith('• ')) {
+      const text = line.replace(/^[-•]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1')
+      elements.push(
+        <div key={i} className="flex gap-2 mb-1.5">
+          <span className="text-[#D4622A] mt-0.5 flex-shrink-0">·</span>
+          <p className="text-sm text-[#374151] leading-relaxed">{text}</p>
+        </div>
+      )
+    } else if (line.trim() === '' || line === '---') {
+      elements.push(<div key={i} className="h-3" />)
+    } else {
+      const text = line.replace(/\*\*(.+?)\*\*/g, '$1')
+      elements.push(<p key={i} className="text-sm text-[#374151] leading-relaxed mb-2">{text}</p>)
+    }
+    i++
+  }
+  return <>{elements}</>
+}
 
-  useEffect(() => {
-    setContent('')
-    setLoading(true)
-    fetch(`/api/competitors/${competitorId}/case-studies/${cs.id}/fetch`, { method: 'POST' })
-      .then(async res => {
-        if (!res.body) { setLoading(false); return }
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          setContent(prev => prev + decoder.decode(value))
-        }
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [cs.id, competitorId])
+// ── Fetch Panel (split screen) ────────────────────────────────────────────────
+function FetchPanel({ cs, competitorId, content, onClose }: {
+  cs: CaseStudy
+  competitorId: string
+  content: string
+  onClose: () => void
+}) {
+  const pillarColor = cs.pillar ? PILLAR_COLORS[cs.pillar] : ''
 
   return (
-    <div className="flex flex-col h-full border-l border-[#E3E0D8] bg-white">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{cs.title}</p>
-          {cs.source_url && (
-            <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-[#D4622A] hover:underline truncate block">{cs.source_url}</a>
+    <div className="flex flex-col bg-[#FAF9F6] border-l border-[#E3E0D8]" style={{ height: 'calc(100vh - 64px)', position: 'sticky', top: 0 }}>
+      {/* Panel header */}
+      <div className="bg-white border-b border-[#E3E0D8] px-5 py-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#1A1A1A] leading-snug">{cs.title}</p>
+            {cs.competitor_clients?.name && (
+              <p className="text-xs text-[#6B6B6B] mt-0.5">Client: {cs.competitor_clients.name}</p>
+            )}
+          </div>
+          <button onClick={onClose}
+            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#9CA3AF] hover:text-[#1A1A1A] hover:bg-[#F5F3EE] transition-colors text-base">
+            ✕
+          </button>
+        </div>
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {cs.pillar && (
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${pillarColor}`}>{cs.pillar}</span>
+          )}
+          {cs.outcome_metric && (
+            <span className="text-xs font-semibold text-[#1A1A1A] bg-[#F5F3EE] px-2 py-0.5 rounded-full">{cs.outcome_metric}</span>
           )}
         </div>
-        <button onClick={onClose} className="ml-3 text-[#9CA3AF] hover:text-[#1A1A1A] text-lg leading-none flex-shrink-0">✕</button>
-      </div>
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {loading && !content && (
-          <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
-            <span className="w-3 h-3 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
-            Fetching case study…
-          </div>
+        {cs.source_url && (
+          <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-xs text-[#D4622A] hover:underline">
+            View original source →
+          </a>
         )}
-        {content && (
-          <div className="prose prose-sm max-w-none
-            prose-headings:text-[#1A1A1A] prose-headings:font-semibold prose-headings:text-sm
-            prose-p:text-[#374151] prose-p:leading-relaxed prose-p:text-sm
-            prose-strong:text-[#1A1A1A]
-            prose-li:text-[#374151] prose-li:text-sm
-            prose-h2:mt-5 prose-h2:mb-2">
-            {content.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) return <h2 key={i} className="text-sm font-semibold text-[#1A1A1A] mt-5 mb-2">{line.replace('## ', '')}</h2>
-              if (line.startsWith('- ')) return <li key={i} className="text-sm text-[#374151] ml-4 list-disc">{line.replace('- ', '')}</li>
-              if (line.trim() === '') return <div key={i} className="h-2" />
-              return <p key={i} className="text-sm text-[#374151] leading-relaxed">{line}</p>
-            })}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        {!content ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-[#9CA3AF]">
+            <span className="w-5 h-5 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm">Fetching case study…</p>
           </div>
+        ) : (
+          <SimpleMarkdown content={content} />
         )}
       </div>
     </div>
@@ -275,6 +301,8 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const [draft, setDraft] = useState(competitor)
   const [saving, setSaving] = useState(false)
   const [fetchPanel, setFetchPanel] = useState<CaseStudy | null>(null)
+  const [fetchedContent, setFetchedContent] = useState<Record<string, string>>({})
+  const [fetching, setFetching] = useState<string | null>(null)
 
   // Client form
   const [showClientForm, setShowClientForm] = useState(false)
@@ -395,6 +423,27 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     await fetch(`/api/competitors/${competitor.id}/case-studies?csId=${csId}`, { method: 'DELETE' })
     setCaseStudies(prev => prev.filter(cs => cs.id !== csId))
     if (fetchPanel?.id === csId) setFetchPanel(null)
+    setFetchedContent(prev => { const n = { ...prev }; delete n[csId]; return n })
+  }
+
+  const fetchCaseStudy = async (cs: CaseStudy) => {
+    // If already fetched, just open the panel
+    if (fetchedContent[cs.id]) { setFetchPanel(cs); return }
+    setFetching(cs.id)
+    setFetchPanel(cs)
+    setFetchedContent(prev => ({ ...prev, [cs.id]: '' }))
+    const res = await fetch(`/api/competitors/${competitor.id}/case-studies/${cs.id}/fetch`, { method: 'POST' })
+    if (res.body) {
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value)
+        setFetchedContent(prev => ({ ...prev, [cs.id]: (prev[cs.id] ?? '') + chunk }))
+      }
+    }
+    setFetching(null)
   }
 
   // Only show AI-relevant items
@@ -764,13 +813,22 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
                     <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
                       className="text-xs text-[#D4622A] hover:underline">View source →</a>
                   )}
-                  {cs.source_url && (
-                    <button
-                      onClick={() => setFetchPanel(fetchPanel?.id === cs.id ? null : cs)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${fetchPanel?.id === cs.id ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'border-[#E3E0D8] text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A]'}`}>
-                      {fetchPanel?.id === cs.id ? '✕ Close' : '⬇ Fetch'}
-                    </button>
-                  )}
+                  {cs.source_url && (() => {
+                    const isFetching = fetching === cs.id
+                    const isFetched = !!fetchedContent[cs.id]
+                    const isOpen = fetchPanel?.id === cs.id
+                    return (
+                      <button
+                        onClick={() => isOpen ? setFetchPanel(null) : fetchCaseStudy(cs)}
+                        disabled={isFetching}
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-50 ${isOpen ? 'bg-[#D4622A] text-white border-[#D4622A]' : isFetched ? 'bg-[#F5F3EE] text-[#1A1A1A] border-[#E3E0D8] hover:border-[#D4622A]/40' : 'border-[#E3E0D8] text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A]'}`}>
+                        {isFetching ? <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />Fetching…</span>
+                          : isOpen ? '✕ Close'
+                          : isFetched ? '📖 Read'
+                          : '⬇ Fetch'}
+                      </button>
+                    )
+                  })()}
                 </div>
               </div>
             ))}
@@ -781,8 +839,13 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
 
       {/* Split-screen fetch panel */}
       {fetchPanel && (
-        <div className="w-[420px] flex-shrink-0 h-full sticky top-0" style={{ maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' }}>
-          <FetchPanel cs={fetchPanel} competitorId={competitor.id} onClose={() => setFetchPanel(null)} />
+        <div className="w-[440px] flex-shrink-0" style={{ height: 'calc(100vh - 64px)', position: 'sticky', top: 0 }}>
+          <FetchPanel
+            cs={fetchPanel}
+            competitorId={competitor.id}
+            content={fetchedContent[fetchPanel.id] ?? ''}
+            onClose={() => setFetchPanel(null)}
+          />
         </div>
       )}
     </div>
