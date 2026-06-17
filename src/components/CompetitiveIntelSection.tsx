@@ -343,7 +343,14 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     if (res.ok) setCaseStudies(await res.json())
   }, [competitor.id])
 
-  useEffect(() => { loadClients(); loadCaseStudies() }, [loadClients, loadCaseStudies])
+  useEffect(() => {
+    // Fetch full profile (list view only loads partial fields)
+    fetch(`/api/competitors/${competitor.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) { setCompetitor(data); setDraft(data) } })
+    loadClients()
+    loadCaseStudies()
+  }, [competitor.id, loadClients, loadCaseStudies])
 
   const refresh = async () => {
     setRefreshing(true)
