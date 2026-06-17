@@ -20,9 +20,10 @@ const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphS
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
 const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: false })
 const PodcastSection = dynamic(() => import('@/components/PodcastSection'), { ssr: false })
+const CompetitiveIntelSection = dynamic(() => import('@/components/CompetitiveIntelSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'podcast'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'podcast' | 'competitive'
 type SettingsTab = 'context' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -83,6 +84,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
     </svg>
   ),
+  competitive: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+    </svg>
+  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -97,6 +103,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'graph', label: 'Knowledge Graph' },
   { id: 'research', label: 'Research' },
   { id: 'podcast', label: 'Podcast' },
+  { id: 'competitive', label: 'Competitive Intel' },
 ]
 
 export default function Home() {
@@ -493,6 +500,7 @@ export default function Home() {
         {tab === 'mirror' && <MirrorSection />}
         {tab === 'research' && <ResearchSection onContextChange={setResearchContext} />}
         {tab === 'podcast' && <PodcastSection />}
+        {tab === 'competitive' && <CompetitiveIntelSection />}
         {tab !== 'chat' && (
           <FloatingChat
             pageContext={

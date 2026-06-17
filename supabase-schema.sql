@@ -92,3 +92,65 @@ create table if not exists podcast_episodes (
 
 alter table podcast_episodes enable row level security;
 create policy "allow all" on podcast_episodes for all using (true) with check (true);
+
+-- Competitive Intelligence: Competitors
+create table if not exists competitors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  website text not null,
+  description text,
+  founding_year integer,
+  hq text,
+  funding_stage text,
+  total_raised text,
+  team_size text,
+  pricing_model text,
+  positioning text,
+  target_industries text[] default '{}',
+  target_company_size text[] default '{}',
+  geographies text[] default '{}',
+  tech_stack text[] default '{}',
+  differentiators text[] default '{}',
+  content_themes text[] default '{}',
+  pillars text[] default '{}',
+  share_id text unique default encode(gen_random_bytes(12), 'hex'),
+  last_refreshed_at timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table competitors enable row level security;
+create policy "allow all" on competitors for all using (true) with check (true);
+
+-- Competitive Intelligence: Clients (named customers of a competitor)
+create table if not exists competitor_clients (
+  id uuid primary key default gen_random_uuid(),
+  competitor_id uuid not null references competitors(id) on delete cascade,
+  name text not null,
+  industry text,
+  company_size text,
+  geography text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+alter table competitor_clients enable row level security;
+create policy "allow all" on competitor_clients for all using (true) with check (true);
+
+-- Competitive Intelligence: Case Studies
+create table if not exists competitor_case_studies (
+  id uuid primary key default gen_random_uuid(),
+  competitor_id uuid not null references competitors(id) on delete cascade,
+  client_id uuid references competitor_clients(id) on delete set null,
+  title text not null,
+  pillar text check (pillar in ('Learning AI', 'Enterprise AI', 'AI Infrastructure')),
+  industry text,
+  function text,
+  tools text[] default '{}',
+  outcome_metric text,
+  source_url text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+alter table competitor_case_studies enable row level security;
+create policy "allow all" on competitor_case_studies for all using (true) with check (true);
