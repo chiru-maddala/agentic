@@ -136,6 +136,9 @@ create table if not exists competitor_clients (
 alter table competitor_clients enable row level security;
 create policy "allow all" on competitor_clients for all using (true) with check (true);
 
+-- Unique constraint to allow upsert by name per competitor
+alter table competitor_clients add constraint if not exists competitor_clients_competitor_id_name_key unique (competitor_id, name);
+
 -- Competitive Intelligence: Case Studies
 create table if not exists competitor_case_studies (
   id uuid primary key default gen_random_uuid(),

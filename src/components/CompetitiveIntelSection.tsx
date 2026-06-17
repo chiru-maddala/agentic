@@ -195,6 +195,68 @@ function CompetitorList({ competitors, onSelect, onAdded }: {
   )
 }
 
+// ── Fetch Panel (split screen) ────────────────────────────────────────────────
+function FetchPanel({ cs, competitorId, onClose }: { cs: CaseStudy; competitorId: string; onClose: () => void }) {
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setContent('')
+    setLoading(true)
+    fetch(`/api/competitors/${competitorId}/case-studies/${cs.id}/fetch`, { method: 'POST' })
+      .then(async res => {
+        if (!res.body) { setLoading(false); return }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          setContent(prev => prev + decoder.decode(value))
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [cs.id, competitorId])
+
+  return (
+    <div className="flex flex-col h-full border-l border-[#E3E0D8] bg-white">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{cs.title}</p>
+          {cs.source_url && (
+            <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-[#D4622A] hover:underline truncate block">{cs.source_url}</a>
+          )}
+        </div>
+        <button onClick={onClose} className="ml-3 text-[#9CA3AF] hover:text-[#1A1A1A] text-lg leading-none flex-shrink-0">✕</button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        {loading && !content && (
+          <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
+            <span className="w-3 h-3 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+            Fetching case study…
+          </div>
+        )}
+        {content && (
+          <div className="prose prose-sm max-w-none
+            prose-headings:text-[#1A1A1A] prose-headings:font-semibold prose-headings:text-sm
+            prose-p:text-[#374151] prose-p:leading-relaxed prose-p:text-sm
+            prose-strong:text-[#1A1A1A]
+            prose-li:text-[#374151] prose-li:text-sm
+            prose-h2:mt-5 prose-h2:mb-2">
+            {content.split('\n').map((line, i) => {
+              if (line.startsWith('## ')) return <h2 key={i} className="text-sm font-semibold text-[#1A1A1A] mt-5 mb-2">{line.replace('## ', '')}</h2>
+              if (line.startsWith('- ')) return <li key={i} className="text-sm text-[#374151] ml-4 list-disc">{line.replace('- ', '')}</li>
+              if (line.trim() === '') return <div key={i} className="h-2" />
+              return <p key={i} className="text-sm text-[#374151] leading-relaxed">{line}</p>
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Competitor Detail ─────────────────────────────────────────────────────────
 function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }: {
   competitor: Competitor
@@ -207,10 +269,12 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const [clients, setClients] = useState<Client[]>([])
   const [caseStudies, setCaseStudies] = useState<CaseStudy[]>([])
   const [refreshing, setRefreshing] = useState(false)
+  const [researching, setResearching] = useState(false)
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(competitor)
   const [saving, setSaving] = useState(false)
+  const [fetchPanel, setFetchPanel] = useState<CaseStudy | null>(null)
 
   // Client form
   const [showClientForm, setShowClientForm] = useState(false)
@@ -244,6 +308,19 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
       onUpdated(updated)
     }
     setRefreshing(false)
+  }
+
+  const research = async () => {
+    setResearching(true)
+    const res = await fetch(`/api/competitors/${competitor.id}/research`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      setClients(data.clients ?? [])
+      setCaseStudies(data.case_studies ?? [])
+      // Switch to clients tab to show results
+      setTab('clients')
+    }
+    setResearching(false)
   }
 
   const share = () => {
@@ -308,25 +385,36 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const deleteCaseStudy = async (csId: string) => {
     await fetch(`/api/competitors/${competitor.id}/case-studies?csId=${csId}`, { method: 'DELETE' })
     setCaseStudies(prev => prev.filter(cs => cs.id !== csId))
+    if (fetchPanel?.id === csId) setFetchPanel(null)
   }
 
   return (
-    <div>
+    <div className={`flex gap-0 ${fetchPanel ? 'divide-x divide-[#E3E0D8]' : ''}`}>
+      {/* Main content */}
+      <div className={`flex-1 min-w-0 ${fetchPanel ? 'pr-0' : ''}`}>
       {/* Top bar */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
         <button onClick={onBack} className="text-sm text-[#6B6B6B] hover:text-[#1A1A1A] flex items-center gap-1">
           ← Back
         </button>
         <span className="text-[#E3E0D8]">/</span>
         <span className="text-sm font-medium text-[#1A1A1A]">{competitor.name}</span>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
           <button onClick={share}
             className="text-sm px-3 py-1.5 border border-[#E3E0D8] rounded-lg text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A] transition-colors">
             {copied ? '✓ Copied' : 'Share'}
           </button>
-          <button onClick={refresh} disabled={refreshing}
+          <button onClick={refresh} disabled={refreshing || researching}
             className="text-sm px-3 py-1.5 border border-[#E3E0D8] rounded-lg text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A] transition-colors disabled:opacity-50">
             {refreshing ? 'Refreshing…' : '↻ Refresh'}
+          </button>
+          <button onClick={research} disabled={researching || refreshing}
+            className="text-sm px-3 py-1.5 bg-[#D4622A] text-white rounded-lg hover:bg-[#C4531B] disabled:opacity-50 flex items-center gap-1.5 transition-colors">
+            {researching ? (
+              <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Researching…</>
+            ) : (
+              <>🔍 Research</>
+            )}
           </button>
           <button onClick={deleteCompetitor}
             className="text-sm px-3 py-1.5 border border-red-200 rounded-lg text-red-400 hover:bg-red-50 transition-colors">
@@ -631,7 +719,7 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
 
           <div className="space-y-3">
             {caseStudies.map(cs => (
-              <div key={cs.id} className="bg-white border border-[#E3E0D8] rounded-xl p-5 group relative">
+              <div key={cs.id} className={`bg-white border rounded-xl p-5 group relative transition-colors ${fetchPanel?.id === cs.id ? 'border-[#D4622A]' : 'border-[#E3E0D8]'}`}>
                 <button onClick={() => deleteCaseStudy(cs.id)}
                   className="absolute top-4 right-4 text-xs text-[#C4BFB5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
                 <div className="flex items-start gap-3 pr-6">
@@ -657,13 +745,30 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
                     ))}
                   </div>
                 )}
-                {cs.source_url && (
-                  <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
-                    className="mt-2 inline-block text-xs text-[#D4622A] hover:underline">View source →</a>
-                )}
+                <div className="mt-3 flex items-center gap-3">
+                  {cs.source_url && (
+                    <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-[#D4622A] hover:underline">View source →</a>
+                  )}
+                  {cs.source_url && (
+                    <button
+                      onClick={() => setFetchPanel(fetchPanel?.id === cs.id ? null : cs)}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${fetchPanel?.id === cs.id ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'border-[#E3E0D8] text-[#6B6B6B] hover:border-[#D4622A]/40 hover:text-[#D4622A]'}`}>
+                      {fetchPanel?.id === cs.id ? '✕ Close' : '⬇ Fetch'}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+      </div>{/* end main content */}
+
+      {/* Split-screen fetch panel */}
+      {fetchPanel && (
+        <div className="w-[420px] flex-shrink-0 h-full sticky top-0" style={{ maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' }}>
+          <FetchPanel cs={fetchPanel} competitorId={competitor.id} onClose={() => setFetchPanel(null)} />
         </div>
       )}
     </div>
