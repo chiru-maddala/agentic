@@ -49,13 +49,14 @@ Return a JSON object with this exact structure:
 }
 
 Rules:
-- Only include real, verifiable clients that ${competitor.name} publicly claims
-- For "pillar", use STRICT definitions — the case study must explicitly involve AI/ML to qualify:
-  • "Learning AI" = AI used for employee training, upskilling, learning platforms, AI tutors, personalized education
-  • "Enterprise AI" = AI agents, LLMs, generative AI, AI copilots, AI-powered automation, chatbots, NLP deployed in business workflows
+- ONLY include clients that have a known AI or ML use case with ${competitor.name}. Exclude clients whose relationship is purely IT managed services, cloud migration, ERP, networking, or general infrastructure with no AI component.
+- ONLY include case studies that explicitly involve AI or ML. Exclude general IT, cloud migration, managed services, ERP, networking, cybersecurity, or infrastructure modernization unless AI/ML is a core part of the work.
+- For "pillar", use STRICT definitions:
+  • "Learning AI" = AI for employee training, upskilling, learning platforms, AI tutors, personalized education
+  • "Enterprise AI" = AI agents, LLMs, generative AI, AI copilots, AI-powered automation, chatbots, NLP in business workflows
   • "AI Infrastructure" = GPU compute, AI model training infrastructure, MLOps platforms, vector databases, model serving, AI-specific data pipelines
-  • null = general IT, cloud migration, ERP, networking, managed services, cybersecurity, or any case study that does NOT specifically involve AI or ML — set to null even if it involves technology or infrastructure
-- When in doubt between a pillar and null, choose null. Do NOT map general "cloud" or "IT infrastructure" to "AI Infrastructure".
+- Every case study returned MUST have a non-null pillar. If you cannot assign a pillar, do not include the case study.
+- If ${competitor.name} has no verifiable AI-specific clients or case studies, return empty arrays.
 - Include up to 15 clients and up to 10 case studies
 - Prefer case studies with specific, measurable outcomes
 - Return ONLY valid JSON, no explanation`

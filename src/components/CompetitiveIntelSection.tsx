@@ -397,6 +397,11 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     if (fetchPanel?.id === csId) setFetchPanel(null)
   }
 
+  // Only show AI-relevant items
+  const aiCaseStudies = caseStudies.filter(cs => cs.pillar)
+  const aiClientIds = new Set(aiCaseStudies.map(cs => cs.client_id).filter(Boolean))
+  const aiClients = clients.filter(c => aiClientIds.has(c.id))
+
   return (
     <div className={`flex gap-0 ${fetchPanel ? 'divide-x divide-[#E3E0D8]' : ''}`}>
       {/* Main content */}
@@ -452,7 +457,7 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
         {(['profile', 'clients', 'case-studies'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`text-sm px-4 py-2 capitalize transition-colors ${tab === t ? 'border-b-2 border-[#D4622A] text-[#D4622A] font-medium' : 'text-[#6B6B6B] hover:text-[#1A1A1A]'}`}>
-            {t === 'case-studies' ? `Case Studies (${caseStudies.length})` : t === 'clients' ? `Clients (${clients.length})` : 'Profile'}
+            {t === 'case-studies' ? `Case Studies (${aiCaseStudies.length})` : t === 'clients' ? `Clients (${aiClients.length})` : 'Profile'}
           </button>
         ))}
       </div>
@@ -627,12 +632,12 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
             </div>
           )}
 
-          {clients.length === 0 && !showClientForm && (
-            <p className="text-sm text-[#9CA3AF] text-center py-10">No clients yet. Add named customers of this competitor.</p>
+          {aiClients.length === 0 && !showClientForm && (
+            <p className="text-sm text-[#9CA3AF] text-center py-10">No AI-related clients yet. Click Research to auto-fetch, or add manually.</p>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {clients.map(c => (
+            {aiClients.map(c => (
               <div key={c.id} className="bg-white border border-[#E3E0D8] rounded-lg p-4 group relative">
                 <button onClick={() => deleteClient(c.id)}
                   className="absolute top-3 right-3 text-xs text-[#C4BFB5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
@@ -722,12 +727,12 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
             </div>
           )}
 
-          {caseStudies.length === 0 && !showCsForm && (
-            <p className="text-sm text-[#9CA3AF] text-center py-10">No case studies yet.</p>
+          {aiCaseStudies.length === 0 && !showCsForm && (
+            <p className="text-sm text-[#9CA3AF] text-center py-10">No AI-related case studies yet. Click Research to auto-fetch, or add manually.</p>
           )}
 
           <div className="space-y-3">
-            {caseStudies.map(cs => (
+            {aiCaseStudies.map(cs => (
               <div key={cs.id} className={`bg-white border rounded-xl p-5 group relative transition-colors ${fetchPanel?.id === cs.id ? 'border-[#D4622A]' : 'border-[#E3E0D8]'}`}>
                 <button onClick={() => deleteCaseStudy(cs.id)}
                   className="absolute top-4 right-4 text-xs text-[#C4BFB5] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
