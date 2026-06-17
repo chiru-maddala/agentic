@@ -689,24 +689,26 @@ export default function CompetitiveIntelSection() {
   }
   const handleDeleted = (id: string) => setCompetitors(prev => prev.filter(x => x.id !== id))
 
-  if (loading) return <div className="text-sm text-[#9CA3AF] py-10 text-center">Loading…</div>
-
-  if (selected) {
-    return (
-      <CompetitorDetail
-        competitor={selected}
-        onBack={() => setSelected(null)}
-        onUpdated={handleUpdated}
-        onDeleted={handleDeleted}
-      />
-    )
-  }
-
   return (
-    <CompetitorList
-      competitors={competitors}
-      onSelect={setSelected}
-      onAdded={handleAdded}
-    />
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {loading ? (
+          <div className="text-sm text-[#9CA3AF] py-10 text-center">Loading…</div>
+        ) : selected ? (
+          <CompetitorDetail
+            competitor={selected}
+            onBack={() => setSelected(null)}
+            onUpdated={handleUpdated}
+            onDeleted={handleDeleted}
+          />
+        ) : (
+          <CompetitorList
+            competitors={competitors}
+            onSelect={setSelected}
+            onAdded={handleAdded}
+          />
+        )}
+      </div>
+    </div>
   )
 }
