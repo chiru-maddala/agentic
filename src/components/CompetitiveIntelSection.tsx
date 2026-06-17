@@ -195,88 +195,68 @@ function CompetitorList({ competitors, onSelect, onAdded }: {
   )
 }
 
-// ── Markdown renderer (simple, no dependencies) ──────────────────────────────
-function SimpleMarkdown({ content }: { content: string }) {
-  const lines = content.split('\n')
-  const elements: React.ReactNode[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={i} className="text-xs font-bold text-[#9CA3AF] uppercase tracking-widest mt-6 mb-2 first:mt-0">
-          {line.replace('## ', '')}
-        </h2>
-      )
-    } else if (line.startsWith('- ') || line.startsWith('• ')) {
-      const text = line.replace(/^[-•]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1')
-      elements.push(
-        <div key={i} className="flex gap-2 mb-1.5">
-          <span className="text-[#D4622A] mt-0.5 flex-shrink-0">·</span>
-          <p className="text-sm text-[#374151] leading-relaxed">{text}</p>
-        </div>
-      )
-    } else if (line.trim() === '' || line === '---') {
-      elements.push(<div key={i} className="h-3" />)
-    } else {
-      const text = line.replace(/\*\*(.+?)\*\*/g, '$1')
-      elements.push(<p key={i} className="text-sm text-[#374151] leading-relaxed mb-2">{text}</p>)
-    }
-    i++
-  }
-  return <>{elements}</>
-}
-
 // ── Fetch Panel (split screen) ────────────────────────────────────────────────
-function FetchPanel({ cs, competitorId, content, onClose }: {
+function FetchPanel({ cs, content, onClose }: {
   cs: CaseStudy
-  competitorId: string
   content: string
   onClose: () => void
 }) {
-  const pillarColor = cs.pillar ? PILLAR_COLORS[cs.pillar] : ''
-
   return (
-    <div className="flex flex-col bg-[#FAF9F6] border-l border-[#E3E0D8]" style={{ height: 'calc(100vh - 64px)', position: 'sticky', top: 0 }}>
-      {/* Panel header */}
-      <div className="bg-white border-b border-[#E3E0D8] px-5 py-4 flex-shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#1A1A1A] leading-snug">{cs.title}</p>
-            {cs.competitor_clients?.name && (
-              <p className="text-xs text-[#6B6B6B] mt-0.5">Client: {cs.competitor_clients.name}</p>
+    <div className="flex flex-col h-full border-l border-[#E3E0D8] bg-white min-w-0">
+      {/* Header — matches Content Lab panel style */}
+      <div className="px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 min-w-0">
+            {!content && (
+              <span className="w-3 h-3 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin flex-shrink-0 mt-1" />
             )}
+            <span className="text-sm font-semibold text-[#1A1A1A] leading-snug">{cs.title}</span>
           </div>
           <button onClick={onClose}
-            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#9CA3AF] hover:text-[#1A1A1A] hover:bg-[#F5F3EE] transition-colors text-base">
+            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#9CA3AF] hover:text-[#1A1A1A] hover:bg-[#F5F3EE] transition-colors text-sm">
             ✕
           </button>
         </div>
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {cs.pillar && (
-            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${pillarColor}`}>{cs.pillar}</span>
+          {cs.competitor_clients?.name && (
+            <span className="text-xs text-[#6B6B6B]">Client: {cs.competitor_clients.name}</span>
           )}
-          {cs.outcome_metric && (
-            <span className="text-xs font-semibold text-[#1A1A1A] bg-[#F5F3EE] px-2 py-0.5 rounded-full">{cs.outcome_metric}</span>
+          {cs.pillar && (
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PILLAR_COLORS[cs.pillar] ?? ''}`}>{cs.pillar}</span>
           )}
         </div>
+        {cs.outcome_metric && (
+          <p className="mt-1.5 text-xs font-semibold text-[#1A1A1A]">{cs.outcome_metric}</p>
+        )}
         {cs.source_url && (
           <a href={cs.source_url} target="_blank" rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs text-[#D4622A] hover:underline">
-            View original source →
-          </a>
+            className="mt-1 inline-block text-xs text-[#D4622A] hover:underline">View original source →</a>
         )}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-5">
+      {/* Body — prose matching Content Lab */}
+      <div className="flex-1 overflow-y-auto px-6 py-5">
         {!content ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-[#9CA3AF]">
-            <span className="w-5 h-5 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm">Fetching case study…</p>
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-[#9CA3AF]">Fetching case study…</p>
           </div>
         ) : (
-          <SimpleMarkdown content={content} />
+          <div className="prose prose-sm max-w-none
+            prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+            prose-p:text-[#374151] prose-p:leading-relaxed
+            prose-strong:text-[#1A1A1A] prose-li:text-[#374151]">
+            {content.split('\n').map((line, i) => {
+              if (line.startsWith('## '))
+                return <h2 key={i}>{line.replace('## ', '')}</h2>
+              if (line.startsWith('# '))
+                return null
+              if (line.startsWith('- ') || line.startsWith('• '))
+                return <li key={i}>{line.replace(/^[-•]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1')}</li>
+              if (line === '---' || line.trim() === '')
+                return <div key={i} className="h-2" />
+              return <p key={i}>{line.replace(/\*\*(.+?)\*\*/g, '$1')}</p>
+            })}
+          </div>
         )}
       </div>
     </div>
@@ -452,9 +432,10 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const aiClients = clients.filter(c => aiClientIds.has(c.id))
 
   return (
-    <div className={`flex gap-0 ${fetchPanel ? 'divide-x divide-[#E3E0D8]' : ''}`}>
+    <div className="flex h-full overflow-hidden">
       {/* Main content */}
-      <div className={`flex-1 min-w-0 ${fetchPanel ? 'pr-0' : ''}`}>
+      <div className={`overflow-y-auto transition-all duration-300 ${fetchPanel ? 'w-1/2' : 'w-full'}`}>
+        <div className="max-w-3xl mx-auto px-6 py-8">
       {/* Top bar */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <button onClick={onBack} className="text-sm text-[#6B6B6B] hover:text-[#1A1A1A] flex items-center gap-1">
@@ -835,14 +816,14 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
           </div>
         </div>
       )}
+        </div>{/* end inner padding */}
       </div>{/* end main content */}
 
-      {/* Split-screen fetch panel */}
+      {/* Split-screen fetch panel — matches Content Lab */}
       {fetchPanel && (
-        <div className="w-[440px] flex-shrink-0" style={{ height: 'calc(100vh - 64px)', position: 'sticky', top: 0 }}>
+        <div className="w-1/2 flex-shrink-0 h-full">
           <FetchPanel
             cs={fetchPanel}
-            competitorId={competitor.id}
             content={fetchedContent[fetchPanel.id] ?? ''}
             onClose={() => setFetchPanel(null)}
           />
@@ -871,18 +852,24 @@ export default function CompetitiveIntelSection() {
   }
   const handleDeleted = (id: string) => setCompetitors(prev => prev.filter(x => x.id !== id))
 
+  if (selected) {
+    return (
+      <div className="h-full overflow-hidden">
+        <CompetitorDetail
+          competitor={selected}
+          onBack={() => setSelected(null)}
+          onUpdated={handleUpdated}
+          onDeleted={handleDeleted}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8">
         {loading ? (
           <div className="text-sm text-[#9CA3AF] py-10 text-center">Loading…</div>
-        ) : selected ? (
-          <CompetitorDetail
-            competitor={selected}
-            onBack={() => setSelected(null)}
-            onUpdated={handleUpdated}
-            onDeleted={handleDeleted}
-          />
         ) : (
           <CompetitorList
             competitors={competitors}
