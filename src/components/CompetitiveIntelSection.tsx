@@ -312,12 +312,21 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
 
   const research = async () => {
     setResearching(true)
-    const res = await fetch(`/api/competitors/${competitor.id}/research`, { method: 'POST' })
-    if (res.ok) {
-      const data = await res.json()
+    // Run profile refresh and clients/case studies research in parallel
+    const [refreshRes, researchRes] = await Promise.all([
+      fetch(`/api/competitors/${competitor.id}/refresh`, { method: 'POST' }),
+      fetch(`/api/competitors/${competitor.id}/research`, { method: 'POST' }),
+    ])
+    if (refreshRes.ok) {
+      const updated = await refreshRes.json()
+      setCompetitor(updated)
+      setDraft(updated)
+      onUpdated(updated)
+    }
+    if (researchRes.ok) {
+      const data = await researchRes.json()
       setClients(data.clients ?? [])
       setCaseStudies(data.case_studies ?? [])
-      // Switch to clients tab to show results
       setTab('clients')
     }
     setResearching(false)
