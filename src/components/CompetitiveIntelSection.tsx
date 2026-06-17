@@ -1,6 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { marked } from 'marked'
 
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
 
@@ -195,6 +198,54 @@ function CompetitorList({ competitors, onSelect, onAdded }: {
   )
 }
 
+// ── Rich editor panel ─────────────────────────────────────────────────────────
+function FetchPanelEditor({ content }: { content: string }) {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: marked.parse(content) as string,
+    editorProps: { attributes: { class: 'outline-none min-h-full' } },
+  })
+
+  const prevContent = useRef(content)
+  useEffect(() => {
+    if (editor && content !== prevContent.current) {
+      prevContent.current = content
+      editor.commands.setContent(marked.parse(content) as string)
+    }
+  }, [content, editor])
+
+  if (!editor) return null
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-4 py-2 border-b border-[#E3E0D8] bg-[#FAF9F6] flex-shrink-0 flex-wrap">
+        {[
+          { label: 'B',       title: 'Bold',        action: () => editor.chain().focus().toggleBold().run(),              active: editor.isActive('bold') },
+          { label: 'I',       title: 'Italic',      action: () => editor.chain().focus().toggleItalic().run(),            active: editor.isActive('italic') },
+          { label: 'H2',      title: 'Heading 2',   action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(), active: editor.isActive('heading', { level: 2 }) },
+          { label: 'H3',      title: 'Heading 3',   action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(), active: editor.isActive('heading', { level: 3 }) },
+          { label: '• List',  title: 'Bullet list', action: () => editor.chain().focus().toggleBulletList().run(),         active: editor.isActive('bulletList') },
+          { label: '❝',       title: 'Blockquote',  action: () => editor.chain().focus().toggleBlockquote().run(),        active: editor.isActive('blockquote') },
+        ].map(({ label, title, action, active }) => (
+          <button key={title} onMouseDown={e => { e.preventDefault(); action() }} title={title}
+            className={`text-xs px-2 py-1 rounded transition-colors ${active ? 'bg-[#D4622A] text-white' : 'text-[#6B6B6B] hover:bg-[#ECEAE3]'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <EditorContent
+        editor={editor}
+        className="flex-1 overflow-y-auto px-6 py-5 prose prose-sm max-w-none
+          prose-headings:text-[#1A1A1A] prose-headings:font-semibold
+          prose-p:text-[#374151] prose-p:leading-relaxed
+          prose-strong:text-[#1A1A1A] prose-li:text-[#374151]
+          [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-full"
+      />
+    </div>
+  )
+}
+
 // ── Fetch Panel (split screen) ────────────────────────────────────────────────
 function FetchPanel({ cs, content, onClose }: {
   cs: CaseStudy
@@ -203,7 +254,7 @@ function FetchPanel({ cs, content, onClose }: {
 }) {
   return (
     <div className="flex flex-col h-full border-l border-[#E3E0D8] bg-white min-w-0">
-      {/* Header — matches Content Lab panel style */}
+      {/* Header */}
       <div className="px-5 py-3 border-b border-[#E3E0D8] flex-shrink-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0">
@@ -234,29 +285,15 @@ function FetchPanel({ cs, content, onClose }: {
         )}
       </div>
 
-      {/* Body — prose matching Content Lab */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      {/* Body — rich editor or loading */}
+      <div className="flex-1 overflow-hidden">
         {!content ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-[#9CA3AF]">Fetching case study…</p>
+          <div className="flex items-center justify-center h-full gap-2 text-[#9CA3AF]">
+            <span className="w-4 h-4 border-2 border-[#D4622A] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm">Fetching case study…</p>
           </div>
         ) : (
-          <div className="prose prose-sm max-w-none
-            prose-headings:text-[#1A1A1A] prose-headings:font-semibold
-            prose-p:text-[#374151] prose-p:leading-relaxed
-            prose-strong:text-[#1A1A1A] prose-li:text-[#374151]">
-            {content.split('\n').map((line, i) => {
-              if (line.startsWith('## '))
-                return <h2 key={i}>{line.replace('## ', '')}</h2>
-              if (line.startsWith('# '))
-                return null
-              if (line.startsWith('- ') || line.startsWith('• '))
-                return <li key={i}>{line.replace(/^[-•]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1')}</li>
-              if (line === '---' || line.trim() === '')
-                return <div key={i} className="h-2" />
-              return <p key={i}>{line.replace(/\*\*(.+?)\*\*/g, '$1')}</p>
-            })}
-          </div>
+          <FetchPanelEditor content={content} />
         )}
       </div>
     </div>
@@ -281,7 +318,9 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const [draft, setDraft] = useState(competitor)
   const [saving, setSaving] = useState(false)
   const [fetchPanel, setFetchPanel] = useState<CaseStudy | null>(null)
-  const [fetchedContent, setFetchedContent] = useState<Record<string, string>>({})
+  const [fetchedContent, setFetchedContent] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}') } catch { return {} }
+  })
   const [fetching, setFetching] = useState<string | null>(null)
 
   // Client form
@@ -403,11 +442,18 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     await fetch(`/api/competitors/${competitor.id}/case-studies?csId=${csId}`, { method: 'DELETE' })
     setCaseStudies(prev => prev.filter(cs => cs.id !== csId))
     if (fetchPanel?.id === csId) setFetchPanel(null)
-    setFetchedContent(prev => { const n = { ...prev }; delete n[csId]; return n })
+    setFetchedContent(prev => {
+      const n = { ...prev }; delete n[csId]
+      try {
+        const stored = JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}')
+        delete stored[csId]
+        localStorage.setItem(`ci_fetched_${competitor.id}`, JSON.stringify(stored))
+      } catch {}
+      return n
+    })
   }
 
   const fetchCaseStudy = async (cs: CaseStudy) => {
-    // If already fetched, just open the panel
     if (fetchedContent[cs.id]) { setFetchPanel(cs); return }
     setFetching(cs.id)
     setFetchPanel(cs)
@@ -416,12 +462,19 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     if (res.body) {
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      let full = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value)
-        setFetchedContent(prev => ({ ...prev, [cs.id]: (prev[cs.id] ?? '') + chunk }))
+        full += decoder.decode(value)
+        setFetchedContent(prev => ({ ...prev, [cs.id]: full }))
       }
+      // Persist to localStorage once complete
+      try {
+        const stored = JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}')
+        stored[cs.id] = full
+        localStorage.setItem(`ci_fetched_${competitor.id}`, JSON.stringify(stored))
+      } catch {}
     }
     setFetching(null)
   }
