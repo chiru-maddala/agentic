@@ -318,10 +318,17 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
   const [draft, setDraft] = useState(competitor)
   const [saving, setSaving] = useState(false)
   const [fetchPanel, setFetchPanel] = useState<CaseStudy | null>(null)
-  const [fetchedContent, setFetchedContent] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}') } catch { return {} }
-  })
+  const [fetchedContent, setFetchedContent] = useState<Record<string, string>>({})
   const [fetching, setFetching] = useState<string | null>(null)
+  const lsKey = `ci_fetched_${competitor.id}`
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(lsKey)
+      if (stored) setFetchedContent(JSON.parse(stored))
+    } catch {}
+  }, [lsKey])
 
   // Client form
   const [showClientForm, setShowClientForm] = useState(false)
@@ -452,9 +459,9 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
     setFetchedContent(prev => {
       const n = { ...prev }; delete n[csId]
       try {
-        const stored = JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}')
+        const stored = JSON.parse(localStorage.getItem(lsKey) ?? '{}')
         delete stored[csId]
-        localStorage.setItem(`ci_fetched_${competitor.id}`, JSON.stringify(stored))
+        localStorage.setItem(lsKey, JSON.stringify(stored))
       } catch {}
       return n
     })
@@ -478,9 +485,9 @@ function CompetitorDetail({ competitor: initial, onBack, onUpdated, onDeleted }:
       }
       // Persist to localStorage once complete
       try {
-        const stored = JSON.parse(localStorage.getItem(`ci_fetched_${competitor.id}`) ?? '{}')
+        const stored = JSON.parse(localStorage.getItem(lsKey) ?? '{}')
         stored[cs.id] = full
-        localStorage.setItem(`ci_fetched_${competitor.id}`, JSON.stringify(stored))
+        localStorage.setItem(lsKey, JSON.stringify(stored))
       } catch {}
     }
     setFetching(null)
