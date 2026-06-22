@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
+import { getContextDocsText } from '@/lib/context'
 
 export const maxDuration = 120
 
@@ -32,7 +33,11 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     .from('settings')
     .select('key, value')
     .eq('key', 'business_context')
-  const businessCtx = settings?.[0]?.value ?? ''
+  const businessCtxRaw = settings?.[0]?.value ?? ''
+  const docsContext = await getContextDocsText(supabase)
+  const businessCtx = [businessCtxRaw, docsContext ? `Reference Documents:\n${docsContext}` : '']
+    .filter(Boolean)
+    .join('\n\n')
 
   const client = new Anthropic()
   const message = await client.messages.create({

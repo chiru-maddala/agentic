@@ -53,6 +53,18 @@ create table if not exists settings (
 alter table settings enable row level security;
 create policy "allow all" on settings for all using (true) with check (true);
 
+-- Context documents (uploaded PDFs whose extracted text is injected into agent prompts)
+create table if not exists context_documents (
+  id uuid primary key default gen_random_uuid(),
+  filename text not null,
+  content text not null,
+  char_count integer not null default 0,
+  created_at timestamptz default now()
+);
+
+alter table context_documents enable row level security;
+create policy "allow all" on context_documents for all using (true) with check (true);
+
 -- Content Lab table
 create table if not exists content_lab (
   id uuid primary key default gen_random_uuid(),
