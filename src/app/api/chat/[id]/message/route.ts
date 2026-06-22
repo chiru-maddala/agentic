@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { buildChatSystemPrompt } from '@/lib/prompt'
 import { fetchRecentTweets } from '@/lib/twitter'
+import { getContextDocsText } from '@/lib/context'
 
 export const maxDuration = 300
 
@@ -245,11 +246,15 @@ export async function POST(
           .join('\n')
       : ''
 
+  // Inject uploaded context documents so the chat always has the latest context
+  const docsContext = await getContextDocsText(supabase)
+
   const systemPrompt =
     buildChatSystemPrompt() +
     '\n\nYou have access to tools to manage Tasks and Notes. Use them immediately when asked — do not describe what you are about to do, just do it.' +
     (pageContext ? `\n\n**Current page context:** The user is currently viewing the ${pageContext}` : '') +
-    reportsContext
+    reportsContext +
+    (docsContext ? `\n\n### Uploaded Context Documents\nThe user has uploaded the following reference documents. Treat their contents as authoritative context and answer questions about them directly.\n\n${docsContext}` : '')
 
   // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT).
   // The history already includes the user's just-saved message (text only).
