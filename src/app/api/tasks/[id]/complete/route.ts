@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
-import { getContextDocsText } from '@/lib/context'
+import { getRelevantContext } from '@/lib/context'
 
 export const maxDuration = 300
 
@@ -21,7 +21,10 @@ export async function POST(
     .eq('key', 'business_context')
     .single()
   const businessContext = ctxRow?.value ?? ''
-  const docsContext = await getContextDocsText(supabase)
+  const docsContext = await getRelevantContext(
+    supabase,
+    [task.title, task.description, task.pillar].filter(Boolean).join(' ')
+  )
 
   const client = new Anthropic()
   const encoder = new TextEncoder()

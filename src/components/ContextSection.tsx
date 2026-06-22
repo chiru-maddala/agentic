@@ -62,6 +62,7 @@ function DocumentsBlock() {
   const [docs, setDocs] = useState<ContextDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [reindexing, setReindexing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadDocs = useCallback(async () => {
@@ -108,6 +109,20 @@ function DocumentsBlock() {
     }
   }
 
+  const reindex = async () => {
+    setReindexing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/context-documents/reindex', { method: 'POST' })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reindex failed')
+    } finally {
+      setReindexing(false)
+    }
+  }
+
   const remove = async (id: string) => {
     setDocs((prev) => prev.filter((d) => d.id !== id))
     await fetch(`/api/context-documents?id=${id}`, { method: 'DELETE' })
@@ -127,21 +142,31 @@ function DocumentsBlock() {
             Upload PDFs to keep adding the latest context. Their text is extracted and injected into Task Agent, Content Lab, and report suggestions.
           </p>
         </div>
-        <label
-          className={`flex-shrink-0 ml-4 text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
-            uploading ? 'bg-[#E3E0D8] text-[#9CA3AF] cursor-wait' : 'bg-[#D4622A] hover:bg-[#C05520] text-white'
-          }`}
-        >
-          {uploading ? 'Processing…' : '+ Add PDF'}
-          <input
-            type="file"
-            accept="application/pdf"
-            multiple
-            disabled={uploading}
-            className="hidden"
-            onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
-          />
-        </label>
+        <div className="flex-shrink-0 ml-4 flex items-center gap-2">
+          <button
+            onClick={reindex}
+            disabled={reindexing || docs.length === 0}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[#E3E0D8] text-[#374151] hover:bg-[#F3F1EC] disabled:opacity-50 transition-colors"
+            title="Rebuild retrieval index for documents that don't have one yet"
+          >
+            {reindexing ? 'Reindexing…' : 'Reindex'}
+          </button>
+          <label
+            className={`text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+              uploading ? 'bg-[#E3E0D8] text-[#9CA3AF] cursor-wait' : 'bg-[#D4622A] hover:bg-[#C05520] text-white'
+            }`}
+          >
+            {uploading ? 'Processing…' : '+ Add PDF'}
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              disabled={uploading}
+              className="hidden"
+              onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
+            />
+          </label>
+        </div>
       </div>
 
       <div className="px-5 py-4 bg-[#FAF9F6]">

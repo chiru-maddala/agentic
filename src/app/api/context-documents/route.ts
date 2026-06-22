@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
+import { chunkText } from '@/lib/context'
 
 export const maxDuration = 300
 
@@ -66,6 +67,21 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Split the document into chunks for full-text retrieval
+  const chunks = chunkText(extracted)
+  if (chunks.length > 0) {
+    const { error: chunkErr } = await supabase.from('context_chunks').insert(
+      chunks.map((content, chunk_index) => ({
+        document_id: row.id,
+        filename,
+        chunk_index,
+        content,
+      }))
+    )
+    if (chunkErr) return Response.json({ error: chunkErr.message }, { status: 500 })
+  }
+
   return Response.json(row)
 }
 

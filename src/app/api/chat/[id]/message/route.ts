@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { buildChatSystemPrompt } from '@/lib/prompt'
 import { fetchRecentTweets } from '@/lib/twitter'
-import { getContextDocsText } from '@/lib/context'
+import { getRelevantContext } from '@/lib/context'
 
 export const maxDuration = 300
 
@@ -246,8 +246,8 @@ export async function POST(
           .join('\n')
       : ''
 
-  // Inject uploaded context documents so the chat always has the latest context
-  const docsContext = await getContextDocsText(supabase)
+  // Retrieve only the context-document chunks relevant to this message
+  const docsContext = await getRelevantContext(supabase, message)
 
   const systemPrompt =
     buildChatSystemPrompt() +

@@ -65,6 +65,34 @@ create table if not exists context_documents (
 alter table context_documents enable row level security;
 create policy "allow all" on context_documents for all using (true) with check (true);
 
+-- Context document chunks for full-text retrieval (see migrations/20260622_context_chunks.sql)
+create table if not exists context_chunks (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references context_documents(id) on delete cascade,
+  filename text not null,
+  chunk_index integer not null default 0,
+  content text not null,
+  fts tsvector generated always as (to_tsvector('english', content)) stored,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists context_chunks_fts_idx on context_chunks using gin (fts);
+create index if not exists context_chunks_document_idx on context_chunks(document_id);
+
+alter table context_chunks enable row level security;
+create policy "allow all" on context_chunks for all using (true) with check (true);
+
+create or replace function match_context_chunks(query_text text, match_count integer default 6)
+returns table (id uuid, document_id uuid, filename text, content text, rank real)
+language sql stable as $$
+  select c.id, c.document_id, c.filename, c.content,
+         ts_rank(c.fts, websearch_to_tsquery('english', query_text)) as rank
+  from context_chunks c
+  where c.fts @@ websearch_to_tsquery('english', query_text)
+  order by rank desc
+  limit match_count;
+$$;
+
 -- Content Lab table
 create table if not exists content_lab (
   id uuid primary key default gen_random_uuid(),
