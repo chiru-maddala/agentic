@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
+import { getContextDocsText } from '@/lib/context'
 
 export const maxDuration = 300
 
@@ -20,6 +21,7 @@ export async function POST(
     .eq('key', 'business_context')
     .single()
   const businessContext = ctxRow?.value ?? ''
+  const docsContext = await getContextDocsText(supabase)
 
   const client = new Anthropic()
   const encoder = new TextEncoder()
@@ -32,6 +34,7 @@ export async function POST(
           `You are an expert AI research and strategy assistant. When given a task, you produce a thorough, well-structured document that completes or addresses the task.`,
           `Format your response as clean HTML (use h2, h3, p, ul, ol, strong, table tags as appropriate). Do not include <html>, <head>, or <body> tags. Be comprehensive, actionable, and professional.`,
           businessContext ? `\n\nBusiness Context:\n${businessContext}` : '',
+          docsContext ? `\n\nReference Documents:\n${docsContext}` : '',
         ].join(' ')
 
         const anthropicStream = await client.messages.stream({

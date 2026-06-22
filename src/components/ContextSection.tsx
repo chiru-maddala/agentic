@@ -51,6 +51,142 @@ Then produce a structured Daily Intelligence Report with these sections:
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
+type ContextDoc = {
+  id: string
+  filename: string
+  char_count: number
+  created_at: string
+}
+
+function DocumentsBlock() {
+  const [docs, setDocs] = useState<ContextDoc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadDocs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/context-documents')
+      const data = await res.json()
+      if (Array.isArray(data)) setDocs(data)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadDocs() }, [loadDocs])
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setError(null)
+    for (const file of Array.from(files)) {
+      if (file.type !== 'application/pdf') {
+        setError(`${file.name} is not a PDF`)
+        continue
+      }
+      setUploading(true)
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+          reader.onerror = () => reject(new Error('Failed to read file'))
+          reader.readAsDataURL(file)
+        })
+        const res = await fetch('/api/context-documents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, data: base64 }),
+        })
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+        setDocs((prev) => [data, ...prev])
+      } catch (e) {
+        setError(e instanceof Error ? e.message : `Failed to process ${file.name}`)
+      } finally {
+        setUploading(false)
+      }
+    }
+  }
+
+  const remove = async (id: string) => {
+    setDocs((prev) => prev.filter((d) => d.id !== id))
+    await fetch(`/api/context-documents?id=${id}`, { method: 'DELETE' })
+  }
+
+  return (
+    <div className="bg-white border border-[#E3E0D8] rounded-xl overflow-hidden shadow-sm">
+      <div className="flex items-start justify-between px-5 py-4 border-b border-[#E3E0D8]">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-[#1A1A1A]">Documents</h2>
+            <span className="text-xs bg-[#EEF6FF] text-[#2563EB] border border-[#CFE2FF] px-2 py-0.5 rounded-full">
+              PDF
+            </span>
+          </div>
+          <p className="text-xs text-[#9CA3AF] mt-0.5">
+            Upload PDFs to keep adding the latest context. Their text is extracted and injected into Task Agent, Content Lab, and report suggestions.
+          </p>
+        </div>
+        <label
+          className={`flex-shrink-0 ml-4 text-xs font-medium px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+            uploading ? 'bg-[#E3E0D8] text-[#9CA3AF] cursor-wait' : 'bg-[#D4622A] hover:bg-[#C05520] text-white'
+          }`}
+        >
+          {uploading ? 'Processing…' : '+ Add PDF'}
+          <input
+            type="file"
+            accept="application/pdf"
+            multiple
+            disabled={uploading}
+            className="hidden"
+            onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
+          />
+        </label>
+      </div>
+
+      <div className="px-5 py-4 bg-[#FAF9F6]">
+        {error && (
+          <div className="mb-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <p className="text-xs text-[#9CA3AF]">Loading…</p>
+        ) : docs.length === 0 ? (
+          <p className="text-xs text-[#9CA3AF]">No documents yet. Upload a PDF to add context.</p>
+        ) : (
+          <ul className="space-y-2">
+            {docs.map((doc) => (
+              <li
+                key={doc.id}
+                className="flex items-center justify-between bg-white border border-[#E3E0D8] rounded-lg px-3 py-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4622A" strokeWidth="2" className="flex-shrink-0">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="text-sm text-[#1A1A1A] truncate">{doc.filename}</p>
+                    <p className="text-xs text-[#9CA3AF]">
+                      {doc.char_count.toLocaleString()} chars · {new Date(doc.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => remove(doc.id)}
+                  className="flex-shrink-0 ml-3 text-xs text-[#9CA3AF] hover:text-red-600 transition-colors"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ContextBlock({
   label,
   description,
@@ -172,6 +308,8 @@ export default function ContextSection() {
             <strong>Reports context</strong> is stored here for reference but is <strong>not yet connected</strong> to the report generator — you control when that switch is made. <strong>Others context</strong> is already injected into the Task Agent and Presentation generator.
           </p>
         </div>
+
+        <DocumentsBlock />
 
         <ContextBlock
           label="Reports"
