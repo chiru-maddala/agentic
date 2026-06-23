@@ -63,16 +63,38 @@ export function chunkText(text: string, chunkSize = 1200, overlap = 150): string
  * full-text search. Returns a labelled, prompt-ready string, or '' if nothing
  * matches (or there are no documents).
  */
+// Common English words that add noise to keyword retrieval.
+const STOPWORDS = new Set([
+  'the', 'and', 'for', 'are', 'you', 'your', 'have', 'has', 'had', 'with', 'that', 'this',
+  'from', 'about', 'any', 'anything', 'know', 'can', 'could', 'would', 'should', 'what',
+  'when', 'where', 'which', 'who', 'how', 'why', 'will', 'was', 'were', 'been', 'being',
+  'into', 'onto', 'out', 'over', 'under', 'more', 'most', 'some', 'such', 'than', 'then',
+  'them', 'they', 'their', 'there', 'here', 'recent', 'document', 'documents', 'context',
+  'added', 'add', 'tell', 'give', 'please', 'need', 'want', 'get', 'got', 'see',
+])
+
+// Build an OR-of-keywords query so a full natural-language question matches chunks
+// that contain *any* of its meaningful terms, ranked by relevance — rather than
+// requiring every word (the default AND behaviour of websearch_to_tsquery).
+function toOrQuery(query: string): string {
+  const terms = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w))
+  return [...new Set(terms)].join(' or ')
+}
+
 export async function getRelevantContext(
   supabase: DB,
   query: string,
   matchCount = 6
 ): Promise<string> {
-  const trimmed = query?.trim()
-  if (!trimmed) return ''
+  const orQuery = toOrQuery(query ?? '')
+  if (!orQuery) return ''
 
   const { data, error } = await supabase.rpc('match_context_chunks', {
-    query_text: trimmed,
+    query_text: orQuery,
     match_count: matchCount,
   })
 
