@@ -370,11 +370,13 @@ export default function MirrorSection() {
     const runActionsPart = async () => {
       try {
         const actionsRes = await fetch('/api/mirror/actions', { method: 'POST' })
-        const actionsData: ActionsPayload = await actionsRes.json()
+        const actionsData: ActionsPayload & { error?: string } = await actionsRes.json()
         if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
           setActions(actionsData)
           setActionsAt(actionsData.generated_at)
           localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+        } else {
+          throw new Error(actionsData.error || 'Failed to generate actions')
         }
       } finally {
         setActionsLoading(false)

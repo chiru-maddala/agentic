@@ -4,6 +4,17 @@ import { getSupabase } from '@/lib/supabase'
 export const maxDuration = 300
 
 export async function POST() {
+  try {
+    return await generateAssessment()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to generate assessment'
+    return new Response(`⚠️ Assessment error: ${message}`, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    })
+  }
+}
+
+async function generateAssessment(): Promise<Response> {
   const supabase = getSupabase()
 
   // Fetch all context in parallel

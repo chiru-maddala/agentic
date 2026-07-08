@@ -25,6 +25,15 @@ export type ActionsPayload = {
 }
 
 export async function POST() {
+  try {
+    return await generateActions()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to generate actions'
+    return Response.json({ error: message }, { status: 500 })
+  }
+}
+
+async function generateActions(): Promise<Response> {
   const supabase = getSupabase()
 
   const [goalsRes, signalsRes, tasksRes, reportsRes] = await Promise.all([
