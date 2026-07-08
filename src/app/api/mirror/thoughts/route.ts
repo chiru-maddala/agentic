@@ -7,9 +7,9 @@ export type Thought = {
   created_at: string
 }
 
-const MAX_LENGTH = 280
+export const MAX_LENGTH = 280
 
-function extractHashtags(content: string): string[] {
+export function extractHashtags(content: string): string[] {
   const matches = content.match(/#[a-zA-Z0-9_]+/g) ?? []
   return [...new Set(matches.map((h) => h.slice(1).toLowerCase()))]
 }

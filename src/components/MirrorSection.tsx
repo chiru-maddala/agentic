@@ -232,12 +232,78 @@ function renderThoughtContent(content: string): ReactNode[] {
 }
 
 // ─── Thought Card ──────────────────────────────────────────────────────────────
-function ThoughtCard({ thought, onDelete, onHashtagClick }: {
+function ThoughtCard({ thought, onDelete, onEdit, onHashtagClick }: {
   thought: Thought
   onDelete: (id: string) => void
+  onEdit: (id: string, content: string) => Promise<boolean>
   onHashtagClick: (tag: string) => void
 }) {
   const [hovering, setHovering] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(thought.content)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const startEditing = () => {
+    setDraft(thought.content)
+    setError(null)
+    setEditing(true)
+  }
+
+  const cancelEditing = () => {
+    setEditing(false)
+    setError(null)
+  }
+
+  const save = async () => {
+    const content = draft.trim()
+    if (!content || content === thought.content) { setEditing(false); return }
+    if (content.length > THOUGHT_MAX_LENGTH) { setError(`Exceeds ${THOUGHT_MAX_LENGTH} characters`); return }
+    setSaving(true)
+    setError(null)
+    const ok = await onEdit(thought.id, content)
+    setSaving(false)
+    if (ok) setEditing(false)
+    else setError('Failed to save. Try again.')
+  }
+
+  if (editing) {
+    return (
+      <div className="px-4 py-3">
+        <textarea
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save()
+            if (e.key === 'Escape') cancelEditing()
+          }}
+          maxLength={THOUGHT_MAX_LENGTH}
+          rows={3}
+          className="w-full bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 text-sm text-[#374151] resize-none focus:outline-none focus:border-[#D4622A] leading-relaxed"
+        />
+        <div className="flex items-center gap-2 mt-1.5">
+          {error && <span className="text-xs text-red-500">{error}</span>}
+          <span className={`text-xs ${THOUGHT_MAX_LENGTH - draft.length <= 20 ? 'text-amber-500' : 'text-[#C4BFB5]'}`}>
+            {draft.length}/{THOUGHT_MAX_LENGTH}
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={cancelEditing} className="text-xs text-[#9CA3AF] hover:text-[#1A1A1A]">
+              Cancel
+            </button>
+            <button
+              onClick={save}
+              disabled={saving || !draft.trim()}
+              className="bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1 px-3 rounded-lg transition-colors"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="group px-4 py-3 flex items-start gap-3"
@@ -266,6 +332,15 @@ function ThoughtCard({ thought, onDelete, onHashtagClick }: {
         <span className="text-xs text-[#C4BFB5] whitespace-nowrap">
           {new Date(thought.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
         </span>
+        <button
+          onClick={startEditing}
+          title="Edit thought"
+          className={`text-[#C4BFB5] hover:text-[#1A1A1A] transition-opacity ${hovering ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+          </svg>
+        </button>
         <button
           onClick={() => onDelete(thought.id)}
           title="Delete thought"
@@ -415,6 +490,19 @@ export default function MirrorSection() {
   const deleteThought = async (id: string) => {
     setThoughts((prev) => prev.filter((t) => t.id !== id))
     await fetch(`/api/mirror/thoughts/${id}`, { method: 'DELETE' })
+  }
+
+  const editThought = async (id: string, content: string) => {
+    const res = await fetch(`/api/mirror/thoughts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    })
+    if (res.ok) {
+      const updated: Thought = await res.json()
+      setThoughts((prev) => prev.map((t) => (t.id === id ? updated : t)))
+    }
+    return res.ok
   }
 
   const filterByHashtag = (tag: string) => {
@@ -923,7 +1011,7 @@ export default function MirrorSection() {
               ) : (
                 <div className="bg-white border border-[#E3E0D8] rounded-xl shadow-sm divide-y divide-[#F5F3EE]">
                   {visibleThoughts.map((t) => (
-                    <ThoughtCard key={t.id} thought={t} onDelete={deleteThought} onHashtagClick={filterByHashtag} />
+                    <ThoughtCard key={t.id} thought={t} onDelete={deleteThought} onEdit={editThought} onHashtagClick={filterByHashtag} />
                   ))}
                 </div>
               )}
