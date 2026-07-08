@@ -150,18 +150,25 @@ Actions must be specific to the goals and signals — never generic. Name real p
   const client = new Anthropic()
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
+    max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const raw = msg.content[0].type === 'text' ? msg.content[0].text : ''
-  // Strip markdown fences if present
-  const json = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+  // Strip markdown fences, then take the outermost {...} block in case the
+  // model added leading/trailing prose around the JSON.
+  const fenceStripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+  const braceMatch = fenceStripped.match(/\{[\s\S]*\}/)
+  const json = braceMatch ? braceMatch[0] : fenceStripped
 
   try {
     const payload: ActionsPayload = { ...JSON.parse(json), generated_at: new Date().toISOString() }
     return Response.json(payload)
   } catch {
+    console.error('[mirror/actions] Failed to parse model output', {
+      stop_reason: msg.stop_reason,
+      raw: raw.length > 2000 ? `${raw.slice(0, 1000)}…[truncated]…${raw.slice(-1000)}` : raw,
+    })
     return Response.json({ error: 'Failed to parse actions', raw }, { status: 500 })
   }
 }
