@@ -36,17 +36,19 @@ export async function POST() {
 async function generateActions(): Promise<Response> {
   const supabase = getSupabase()
 
-  const [goalsRes, signalsRes, tasksRes, reportsRes] = await Promise.all([
+  const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
     supabase.from('mirror_goals').select('*'),
     supabase.from('mirror_signals').select('*').order('created_at', { ascending: false }).limit(60),
     supabase.from('tasks').select('title, status, pillar, created_at').order('created_at', { ascending: false }),
     supabase.from('reports').select('date, content').order('created_at', { ascending: false }).limit(3),
+    supabase.from('mirror_thoughts').select('content, hashtags, created_at').order('created_at', { ascending: false }).limit(30),
   ])
 
   const goals = goalsRes.data ?? []
   const signals = signalsRes.data ?? []
   const tasks = tasksRes.data ?? []
   const reports = reportsRes.data ?? []
+  const thoughts = thoughtsRes.data ?? []
 
   const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
 
@@ -72,6 +74,12 @@ async function generateActions(): Promise<Response> {
     `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] [${s.type}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
   ).join('\n')
 
+  const thoughtsContext = thoughts.length > 0
+    ? thoughts.map((t) =>
+        `[${new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] ${t.content}`
+      ).join('\n')
+    : 'None recorded yet.'
+
   const taskContext = PILLARS.map((p) => {
     const s = taskStats.find((t) => t.pillar === p)!
     const open = tasks.filter((t) => t.pillar === p && t.status !== 'done').slice(0, 5).map((t) => `  - [${t.status}] ${t.title}`).join('\n')
@@ -92,6 +100,9 @@ ${goalsContext}
 
 ACTIVITY SIGNALS (recent):
 ${signalsContext || 'None yet.'}
+
+SPONTANEOUS THOUGHTS (recent, raw and unfiltered — often the truest signal of what's actually on his mind):
+${thoughtsContext}
 
 TASK STATUS:
 ${taskContext}

@@ -18,7 +18,7 @@ async function generateAssessment(): Promise<Response> {
   const supabase = getSupabase()
 
   // Fetch all context in parallel
-  const [goalsRes, signalsRes, tasksRes, reportsRes] = await Promise.all([
+  const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
     supabase.from('mirror_goals').select('*'),
     supabase
       .from('mirror_signals')
@@ -34,12 +34,18 @@ async function generateAssessment(): Promise<Response> {
       .select('date, content')
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('mirror_thoughts')
+      .select('content, hashtags, created_at')
+      .order('created_at', { ascending: false })
+      .limit(40),
   ])
 
   const goals = goalsRes.data ?? []
   const signals = signalsRes.data ?? []
   const tasks = tasksRes.data ?? []
   const reports = reportsRes.data ?? []
+  const thoughts = thoughtsRes.data ?? []
 
   // Goals context
   const goalsContext =
@@ -85,6 +91,13 @@ async function generateAssessment(): Promise<Response> {
     .filter(Boolean)
     .join('\n\n') || 'No signals recorded yet.'
 
+  // Thoughts context — raw, unstructured, in-the-moment notes with hashtags
+  const thoughtsContext = thoughts.length > 0
+    ? thoughts.map((t) =>
+        `[${new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] ${t.content}`
+      ).join('\n')
+    : 'None recorded yet.'
+
   // Task health
   const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
   const taskSummary = PILLARS.map((p) => {
@@ -119,12 +132,13 @@ async function generateAssessment(): Promise<Response> {
 
 Your job is to give an honest, specific, and actionable coaching assessment. Not a summary — a mirror. Name what you see. Call out the gaps without being harsh. Point to the highest-leverage moves. Ground every observation in the actual signals and data you have — never be vague, never be generic.
 
-You have three types of signals available:
+You have four types of signals available:
 - **Intelligence from Recent Reports**: AI landscape insights auto-extracted from daily research reports, tagged by pillar. These represent external signals — what's happening in the world that is relevant to Intellina.
 - **CEO's Own Words (from Chat Sessions)**: Statements Chiru has made in chat conversations — his thinking, concerns, ideas, and reflections expressed in his own words. These are often the richest signal of what's really on his mind.
 - **Manual Activity Signals**: Self-reported check-ins and updates entered directly in the Mirror.
+- **Thoughts**: Short, spontaneous, unfiltered notes Chiru jots down in the moment — often tagged with hashtags. These are raw and unstructured, but they capture things he wouldn't otherwise write down: reactions, half-formed ideas, frustrations, sparks of interest. Treat these as high-signal, low-polish — the rawest window into what's actually on his mind day to day.
 
-Use all three in combination. Pay special attention to what Chiru says in his own words from chat — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the activity/chat signals show, name it explicitly. That gap is where the coaching is.
+Use all four in combination. Pay special attention to what Chiru says in his own words from chat and in his thoughts — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the activity/chat/thoughts show, name it explicitly. That gap is where the coaching is.
 
 If goals are not yet defined, work from the activity signals to infer what Chiru seems to be prioritising, and note explicitly that the goals need to be set.`
 
@@ -135,6 +149,9 @@ ${goalsContext}
 
 ## SIGNALS (recent, most recent first)
 ${signalsContext}
+
+## SPONTANEOUS THOUGHTS (recent, most recent first)
+${thoughtsContext}
 
 ## TASK HEALTH BY PILLAR
 ${taskSummary}

@@ -547,7 +547,7 @@ export default function Home() {
               tab === 'reports' ? `reports. ${selectedDate ? `Viewing report from ${selectedDate}.` : 'No report selected.'}${content ? ` Report content: ${content.slice(0, 600)}` : ''}`
               : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
               : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
-              : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — goals, signals, and coaching assessment.'
+              : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — goals, signals, thoughts, and coaching assessment.'
               : tab === 'research' ? researchContext
               : tab === 'dashboard' ? 'dashboard. Viewing the main Dashboard overview.'
               : tab === 'courses' ? 'courses. Viewing the Presentations section.'

@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import ReportDisplay from './ReportDisplay'
 import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
+import type { Thought } from '@/app/api/mirror/thoughts/route'
 
-type MirrorTab = 'intent' | 'coach' | 'signals'
+type MirrorTab = 'intent' | 'coach' | 'signals' | 'thoughts'
+
+const THOUGHT_MAX_LENGTH = 280
 
 type Goal = {
   pillar: string
@@ -218,6 +221,65 @@ function SignalBadge({ type }: { type: string }) {
   )
 }
 
+// ─── Thought Content (hashtags highlighted) ───────────────────────────────────
+function renderThoughtContent(content: string): ReactNode[] {
+  const parts = content.split(/(#[a-zA-Z0-9_]+)/g)
+  return parts.map((part, i) =>
+    part.startsWith('#')
+      ? <span key={i} className="text-[#D4622A] font-medium">{part}</span>
+      : <span key={i}>{part}</span>
+  )
+}
+
+// ─── Thought Card ──────────────────────────────────────────────────────────────
+function ThoughtCard({ thought, onDelete, onHashtagClick }: {
+  thought: Thought
+  onDelete: (id: string) => void
+  onHashtagClick: (tag: string) => void
+}) {
+  const [hovering, setHovering] = useState(false)
+  return (
+    <div
+      className="group px-4 py-3 flex items-start gap-3"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
+          {renderThoughtContent(thought.content)}
+        </p>
+        {thought.hashtags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {thought.hashtags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => onHashtagClick(tag)}
+                className="text-xs text-[#D4622A] bg-[#FEF3EC] hover:bg-[#F5D3BC] px-1.5 py-0.5 rounded-full transition-colors"
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-xs text-[#C4BFB5] whitespace-nowrap">
+          {new Date(thought.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+        </span>
+        <button
+          onClick={() => onDelete(thought.id)}
+          title="Delete thought"
+          className={`text-[#C4BFB5] hover:text-red-500 transition-opacity ${hovering ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MirrorSection() {
   const [tab, setTab] = useState<MirrorTab>('coach')
@@ -236,6 +298,10 @@ export default function MirrorSection() {
   const [actionsAt, setActionsAt] = useState<string | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
   const [showFullAssessment, setShowFullAssessment] = useState(false)
+  const [thoughts, setThoughts] = useState<Thought[]>([])
+  const [thoughtDraft, setThoughtDraft] = useState('')
+  const [postingThought, setPostingThought] = useState(false)
+  const [thoughtFilter, setThoughtFilter] = useState<string | null>(null)
   const [vision, setVision] = useState('')
   const debouncedVision = useDebounce(vision, 1500)
   const visionSaved = useRef(false)
@@ -255,6 +321,12 @@ export default function MirrorSection() {
     const res = await fetch('/api/mirror/signals?limit=60')
     const data = await res.json()
     setSignals(Array.isArray(data) ? data : [])
+  }, [])
+
+  const loadThoughts = useCallback(async () => {
+    const res = await fetch('/api/mirror/thoughts')
+    const data = await res.json()
+    setThoughts(Array.isArray(data) ? data : [])
   }, [])
 
   const loadCached = useCallback(() => {
@@ -277,7 +349,7 @@ export default function MirrorSection() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadGoals(); loadSignals(); loadCached() }, [loadGoals, loadSignals, loadCached])
+  useEffect(() => { loadGoals(); loadSignals(); loadThoughts(); loadCached() }, [loadGoals, loadSignals, loadThoughts, loadCached])
 
   useEffect(() => {
     if (!visionSaved.current) { visionSaved.current = true; return }
@@ -318,6 +390,35 @@ export default function MirrorSection() {
     })
     setCheckin(''); setCheckinPillar(''); setCheckinSaving(false)
     loadSignals()
+  }
+
+  const postThought = async () => {
+    const content = thoughtDraft.trim()
+    if (!content || content.length > THOUGHT_MAX_LENGTH) return
+    setPostingThought(true)
+    try {
+      const res = await fetch('/api/mirror/thoughts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      if (res.ok) {
+        const created: Thought = await res.json()
+        setThoughts((prev) => [created, ...prev])
+        setThoughtDraft('')
+      }
+    } finally {
+      setPostingThought(false)
+    }
+  }
+
+  const deleteThought = async (id: string) => {
+    setThoughts((prev) => prev.filter((t) => t.id !== id))
+    await fetch(`/api/mirror/thoughts/${id}`, { method: 'DELETE' })
+  }
+
+  const filterByHashtag = (tag: string) => {
+    setThoughtFilter((prev) => (prev === tag ? null : tag))
   }
 
   const runActions = async () => {
@@ -431,6 +532,17 @@ export default function MirrorSection() {
   const hasData = actions !== null
   const runAt = actionsAt ?? lastAssessedAt
 
+  const allHashtags = Object.entries(
+    thoughts.reduce<Record<string, number>>((acc, t) => {
+      for (const tag of t.hashtags) acc[tag] = (acc[tag] ?? 0) + 1
+      return acc
+    }, {})
+  ).sort((a, b) => b[1] - a[1])
+
+  const visibleThoughts = thoughtFilter
+    ? thoughts.filter((t) => t.hashtags.includes(thoughtFilter))
+    : thoughts
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#FAF9F6]">
       {/* Header */}
@@ -473,6 +585,7 @@ export default function MirrorSection() {
           { id: 'coach', label: 'Coach', icon: '🔮', desc: runAt ? `Last run ${new Date(runAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Not yet run' },
           { id: 'intent', label: 'Intent', icon: '🎯', desc: `${goalsFilledCount}/3 pillars` },
           { id: 'signals', label: 'Signals', icon: '📶', desc: `${signals.length} captured` },
+          { id: 'thoughts', label: 'Thoughts', icon: '💭', desc: `${thoughts.length} captured` },
         ] as { id: MirrorTab; label: string; icon: string; desc: string }[]).map((t) => (
           <button
             key={t.id}
@@ -741,6 +854,80 @@ export default function MirrorSection() {
             <p className="text-xs text-[#C4BFB5] text-center pb-4">
               Signals are automatically captured when you generate reports, complete tasks, save notes, start chats, and run research.
             </p>
+          </div>
+        )}
+
+        {/* ── THOUGHTS TAB ───────────────────────────────────────── */}
+        {tab === 'thoughts' && (
+          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+            <div>
+              <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">New Thought</h2>
+              <div className="bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm">
+                <textarea
+                  value={thoughtDraft}
+                  onChange={(e) => setThoughtDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postThought() }}
+                  placeholder="What's on your mind? Use #hashtags to tag it. (⌘+Enter to post)"
+                  rows={3}
+                  maxLength={THOUGHT_MAX_LENGTH}
+                  className="w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed mb-3"
+                />
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${THOUGHT_MAX_LENGTH - thoughtDraft.length <= 20 ? 'text-amber-500' : 'text-[#C4BFB5]'}`}>
+                    {thoughtDraft.length}/{THOUGHT_MAX_LENGTH}
+                  </span>
+                  <button onClick={postThought} disabled={!thoughtDraft.trim() || postingThought}
+                    className="ml-auto bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1.5 px-4 rounded-lg transition-colors">
+                    {postingThought ? 'Posting…' : 'Post thought'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {allHashtags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-[#C4BFB5]">Filter:</span>
+                {allHashtags.map(([tag, count]) => (
+                  <button
+                    key={tag}
+                    onClick={() => filterByHashtag(tag)}
+                    className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                      thoughtFilter === tag
+                        ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                        : 'bg-white text-[#6B6B6B] border-[#E3E0D8] hover:bg-[#F5F3EE]'
+                    }`}
+                  >
+                    #{tag} <span className={thoughtFilter === tag ? 'text-white/60' : 'text-[#C4BFB5]'}>{count}</span>
+                  </button>
+                ))}
+                {thoughtFilter && (
+                  <button onClick={() => setThoughtFilter(null)} className="text-xs text-[#9CA3AF] hover:text-[#1A1A1A] underline">
+                    Clear filter
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
+                  {thoughtFilter ? `#${thoughtFilter}` : 'All Thoughts'}
+                </h2>
+                <span className="text-xs text-[#C4BFB5]">{visibleThoughts.length} · used in next assessment</span>
+              </div>
+              {visibleThoughts.length === 0 ? (
+                <div className="bg-white border border-dashed border-[#E3E0D8] rounded-xl p-8 text-center">
+                  <p className="text-sm text-[#9CA3AF]">{thoughtFilter ? `No thoughts tagged #${thoughtFilter}.` : 'No thoughts yet.'}</p>
+                  <p className="text-xs text-[#C4BFB5] mt-1">Jot down whatever&apos;s on your mind — it feeds into your next coaching assessment.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-[#E3E0D8] rounded-xl shadow-sm divide-y divide-[#F5F3EE]">
+                  {visibleThoughts.map((t) => (
+                    <ThoughtCard key={t.id} thought={t} onDelete={deleteThought} onHashtagClick={filterByHashtag} />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
