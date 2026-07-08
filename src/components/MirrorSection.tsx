@@ -234,6 +234,7 @@ export default function MirrorSection() {
   const [actions, setActions] = useState<ActionsPayload | null>(null)
   const [actionsLoading, setActionsLoading] = useState(false)
   const [actionsAt, setActionsAt] = useState<string | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
   const [showFullAssessment, setShowFullAssessment] = useState(false)
   const [vision, setVision] = useState('')
   const debouncedVision = useDebounce(vision, 1500)
@@ -364,35 +365,39 @@ export default function MirrorSection() {
     setActions(null)
     setAssessing(true)
     setAssessment('')
-    // Run both in parallel
-    const [actionsRes] = await Promise.all([
-      fetch('/api/mirror/actions', { method: 'POST' }),
-    ])
-    const actionsData: ActionsPayload = await actionsRes.json()
-    if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
-      setActions(actionsData)
-      setActionsAt(actionsData.generated_at)
-      localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
-    }
-    setActionsLoading(false)
+    setRunError(null)
+    try {
+      const actionsRes = await fetch('/api/mirror/actions', { method: 'POST' })
+      const actionsData: ActionsPayload = await actionsRes.json()
+      if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
+        setActions(actionsData)
+        setActionsAt(actionsData.generated_at)
+        localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+      }
+      setActionsLoading(false)
 
-    // Stream assessment
-    const res = await fetch('/api/mirror/assess', { method: 'POST' })
-    if (!res.body) { setAssessing(false); return }
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let full = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      full += chunk
-      setAssessment((prev) => prev + chunk)
+      // Stream assessment
+      const res = await fetch('/api/mirror/assess', { method: 'POST' })
+      if (!res.body) return
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let full = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        full += chunk
+        setAssessment((prev) => prev + chunk)
+      }
+      const now = new Date().toISOString()
+      setLastAssessedAt(now)
+      localStorage.setItem('mirror_last_assessment', JSON.stringify({ content: full, at: now }))
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : 'Assessment failed. Please try again.')
+    } finally {
+      setActionsLoading(false)
+      setAssessing(false)
     }
-    const now = new Date().toISOString()
-    setLastAssessedAt(now)
-    localStorage.setItem('mirror_last_assessment', JSON.stringify({ content: full, at: now }))
-    setAssessing(false)
   }
 
   const addTask = async (title: string, pillar: string) => {
@@ -440,6 +445,13 @@ export default function MirrorSection() {
           )}
         </button>
       </div>
+
+      {runError && !isRunning && (
+        <div className="flex items-center gap-2 px-6 py-2 bg-red-50 border-b border-red-200 text-xs text-red-700 flex-shrink-0">
+          <span>⚠️</span>
+          <span>{runError}</span>
+        </div>
+      )}
 
       {/* Sub-nav */}
       <div className="flex items-center gap-1 px-6 py-2 border-b border-[#E3E0D8] bg-white flex-shrink-0">
