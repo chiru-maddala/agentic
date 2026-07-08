@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 
@@ -106,9 +106,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'competitive', label: 'Competitive Intel' },
 ]
 
+const VALID_TABS = new Set<Tab | 'settings'>([...TABS.map((t) => t.id), 'settings'])
+
+// useLayoutEffect on the client (runs before paint), useEffect on the server
+// (effects don't run during SSR anyway) to silence the SSR warning.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 export default function Home() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab | 'settings'>('dashboard')
+  const [hydrated, setHydrated] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('context')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -132,6 +139,31 @@ export default function Home() {
       setUserEmail(data.user?.email ?? null)
     })
   }, [])
+
+  // Resolve the active tab from the URL hash before the first paint so a
+  // refresh lands on the right section with no flash of the default dashboard.
+  useIsomorphicLayoutEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '') as Tab | 'settings'
+    if (VALID_TABS.has(hash)) setTab(hash)
+    setHydrated(true)
+  }, [])
+
+  // Follow browser back/forward navigation between sections.
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace(/^#/, '') as Tab | 'settings'
+      if (VALID_TABS.has(hash)) setTab(hash)
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  // Keep the URL hash in sync with the active tab.
+  useEffect(() => {
+    if (window.location.hash.replace(/^#/, '') !== tab) {
+      window.history.replaceState(null, '', `#${tab}`)
+    }
+  }, [tab])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -241,6 +273,14 @@ export default function Home() {
   const handleTabChange = (newTab: Tab | 'settings') => {
     setTab(newTab)
     setSidebarOpen(false)
+  }
+
+  // Until the hash is resolved, render a neutral shell that matches the page
+  // background. The layout effect above runs before paint, so this never
+  // actually shows — it only guarantees the first painted frame is the
+  // correct tab, never the default dashboard.
+  if (!hydrated) {
+    return <div className="h-screen bg-[#FAF9F6]" />
   }
 
   return (
