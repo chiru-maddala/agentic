@@ -366,38 +366,50 @@ export default function MirrorSection() {
     setAssessing(true)
     setAssessment('')
     setRunError(null)
-    try {
-      const actionsRes = await fetch('/api/mirror/actions', { method: 'POST' })
-      const actionsData: ActionsPayload = await actionsRes.json()
-      if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
-        setActions(actionsData)
-        setActionsAt(actionsData.generated_at)
-        localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
-      }
-      setActionsLoading(false)
 
-      // Stream assessment
-      const res = await fetch('/api/mirror/assess', { method: 'POST' })
-      if (!res.body) return
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        full += chunk
-        setAssessment((prev) => prev + chunk)
+    const runActionsPart = async () => {
+      try {
+        const actionsRes = await fetch('/api/mirror/actions', { method: 'POST' })
+        const actionsData: ActionsPayload = await actionsRes.json()
+        if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
+          setActions(actionsData)
+          setActionsAt(actionsData.generated_at)
+          localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+        }
+      } finally {
+        setActionsLoading(false)
       }
-      const now = new Date().toISOString()
-      setLastAssessedAt(now)
-      localStorage.setItem('mirror_last_assessment', JSON.stringify({ content: full, at: now }))
-    } catch (err) {
-      setRunError(err instanceof Error ? err.message : 'Assessment failed. Please try again.')
-    } finally {
-      setActionsLoading(false)
-      setAssessing(false)
     }
+
+    const runAssessmentPart = async () => {
+      try {
+        const res = await fetch('/api/mirror/assess', { method: 'POST' })
+        if (!res.body) return
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let full = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          full += chunk
+          setAssessment((prev) => prev + chunk)
+        }
+        const now = new Date().toISOString()
+        setLastAssessedAt(now)
+        localStorage.setItem('mirror_last_assessment', JSON.stringify({ content: full, at: now }))
+      } finally {
+        setAssessing(false)
+      }
+    }
+
+    // Kick off both requests together instead of waiting for actions to
+    // finish before starting the assessment stream.
+    const results = await Promise.allSettled([runActionsPart(), runAssessmentPart()])
+    const errors = results
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map((r) => (r.reason instanceof Error ? r.reason.message : 'Assessment failed. Please try again.'))
+    if (errors.length) setRunError(errors.join(' · '))
   }
 
   const addTask = async (title: string, pillar: string) => {
