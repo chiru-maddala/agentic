@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
 import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
 import type { Thought } from '@/app/api/mirror/thoughts/route'
@@ -221,14 +221,13 @@ function SignalBadge({ type }: { type: string }) {
   )
 }
 
-// ─── Thought Content (hashtags highlighted) ───────────────────────────────────
-function renderThoughtContent(content: string): ReactNode[] {
-  const parts = content.split(/(#[a-zA-Z0-9_]+)/g)
-  return parts.map((part, i) =>
-    part.startsWith('#')
-      ? <span key={i} className="text-[#D4622A] font-medium">{part}</span>
-      : <span key={i}>{part}</span>
-  )
+// ─── Thought Content (hashtags stripped — shown as chips below instead) ───────
+function stripHashtags(content: string): string {
+  return content
+    .replace(/#[a-zA-Z0-9_]+/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim()
 }
 
 // ─── Thought Card ──────────────────────────────────────────────────────────────
@@ -312,7 +311,7 @@ function ThoughtCard({ thought, onDelete, onEdit, onHashtagClick }: {
     >
       <div className="flex-1 min-w-0">
         <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
-          {renderThoughtContent(thought.content)}
+          {stripHashtags(thought.content)}
         </p>
         {thought.hashtags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
