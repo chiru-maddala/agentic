@@ -266,8 +266,12 @@ export default function MirrorSection() {
       const savedActions = localStorage.getItem('mirror_last_actions')
       if (savedActions) {
         const parsed: ActionsPayload = JSON.parse(savedActions)
-        setActions(parsed)
-        setActionsAt(parsed.generated_at)
+        if (Array.isArray(parsed?.pillars)) {
+          setActions(parsed)
+          setActionsAt(parsed.generated_at)
+        } else {
+          localStorage.removeItem('mirror_last_actions')
+        }
       }
     } catch {}
   }, [])
@@ -321,6 +325,7 @@ export default function MirrorSection() {
     try {
       const res = await fetch('/api/mirror/actions', { method: 'POST' })
       const data: ActionsPayload = await res.json()
+      if (!res.ok || !Array.isArray(data.pillars)) return
       setActions(data)
       setActionsAt(data.generated_at)
       localStorage.setItem('mirror_last_actions', JSON.stringify(data))
@@ -364,9 +369,11 @@ export default function MirrorSection() {
       fetch('/api/mirror/actions', { method: 'POST' }),
     ])
     const actionsData: ActionsPayload = await actionsRes.json()
-    setActions(actionsData)
-    setActionsAt(actionsData.generated_at)
-    localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+    if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
+      setActions(actionsData)
+      setActionsAt(actionsData.generated_at)
+      localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
+    }
     setActionsLoading(false)
 
     // Stream assessment
