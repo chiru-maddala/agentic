@@ -82,18 +82,13 @@ export async function fetchRecentTweets(
     )
     if (response.data?.data) {
       for (const tweet of response.data.data) {
-        results.push(`[${query}] ${tweet.text}`)
+        const username = response.includes.author(tweet)?.username ?? 'i'
+        const url = `https://x.com/${username}/status/${tweet.id}`
+        results.push(`[${query}] (${url}) ${tweet.text}`)
 
         if (seenIds.has(tweet.id)) continue
         seenIds.add(tweet.id)
-        const username = response.includes.author(tweet)?.username ?? 'i'
-        sources.push({
-          id: tweet.id,
-          url: `https://x.com/${username}/status/${tweet.id}`,
-          username,
-          text: tweet.text,
-          query,
-        })
+        sources.push({ id: tweet.id, url, username, text: tweet.text, query })
       }
     }
   }

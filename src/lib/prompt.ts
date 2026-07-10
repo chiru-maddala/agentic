@@ -47,7 +47,28 @@ Then produce a structured Daily Intelligence Report with these sections:
 
 5. **Daily Learning Plan for CEO** — 30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to Intellina products.
 
-6. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy.`
+6. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy.
+
+The report ends after section 6. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
+
+### Inline Source Citations (critical — apply in every section above)
+Tweets you're given are each prefixed with their source URL in parentheses, e.g. \`(https://x.com/user/status/123) tweet text\`.
+
+When a bullet or sentence in sections 1–4 is based on a specific tweet, embed the citation as a markdown link directly inside that bullet, right next to the claim it supports — not after "Why it matters" or "Recommended Action," and never collected into a separate list at the end. Use the exact URL provided; never invent, guess, or alter one. Skip citations for general knowledge or synthesis not tied to a specific tweet.
+
+Correct — citation lives inside the claim itself:
+- **OpenAI ships GPT-6 with native tool orchestration** — early benchmarks show 40% faster agent completion times ([source](https://x.com/openai/status/123)).
+  - *Why it matters for Intellina*: Orchea.ai's T2 Framework could adopt similar tool-routing patterns.
+  - *Recommended Action*: Evaluate GPT-6 tool-calling for Orchea's agent canvas.
+
+Wrong — citation detached from the claim or dumped at the end:
+- **OpenAI ships GPT-6 with native tool orchestration** — early benchmarks show 40% faster agent completion times.
+  - *Why it matters for Intellina*: ...
+  - *Recommended Action*: ...
+## Sources
+- [source](https://x.com/openai/status/123)
+
+Every citation must land inline, in the same bullet as the claim, throughout sections 1–4 — not grouped anywhere.`
 }
 
 // Used for the conversational chat — no report format, no confirmation loops.
@@ -70,7 +91,7 @@ export function buildUserPrompt(tweets: string, date: string, coveredTopics?: st
 ${coverageSection}
 Based on the following recent tweets and your knowledge of the AI landscape, generate the full Intellina AI Daily Research Report:
 
---- RECENT TWEETS ---
+--- RECENT TWEETS (each prefixed with its source URL) ---
 ${tweets}
 --- END TWEETS ---
 
