@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
-import { generateSearchQueries, fetchRecentTweets } from '@/lib/twitter'
+import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/lib/twitter'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 
 export const maxDuration = 300
@@ -130,9 +130,12 @@ export async function POST() {
   const coveredTopics = await fetchCoveredTopics().catch(() => '')
 
   let tweets: string
+  let twitterSources: TwitterSource[] = []
   try {
     const queries = await generateSearchQueries(coveredTopics).catch(() => null)
-    tweets = await fetchRecentTweets(queries ?? undefined)
+    const result = await fetchRecentTweets(queries ?? undefined)
+    tweets = result.text
+    twitterSources = result.sources
   } catch {
     tweets = 'Live Twitter data unavailable. Generating from current AI landscape knowledge.'
   }
@@ -167,7 +170,7 @@ export async function POST() {
         if (fullContent) {
           const { data: report } = await supabase
             .from('reports')
-            .insert({ date: today, content: fullContent })
+            .insert({ date: today, content: fullContent, sources: twitterSources })
             .select()
             .single()
 

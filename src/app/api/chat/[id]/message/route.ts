@@ -108,8 +108,8 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
   if (name === 'search_twitter') {
     const queries = (input.queries as string[]).slice(0, 5)
     try {
-      const tweets = await fetchRecentTweets(queries)
-      return tweets.length > 0 ? tweets : 'No recent tweets found for those queries.'
+      const { text } = await fetchRecentTweets(queries)
+      return text.length > 0 ? text : 'No recent tweets found for those queries.'
     } catch {
       return 'Twitter search failed — the API may be unavailable or rate-limited.'
     }

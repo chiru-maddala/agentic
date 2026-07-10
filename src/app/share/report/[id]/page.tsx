@@ -8,11 +8,13 @@ import ContextMenuWrapper from '@/components/ContextMenuWrapper'
 
 type Props = { params: Promise<{ id: string }> }
 
+type TwitterSource = { id: string; url: string; username: string; text: string }
+
 async function getReport(id: string) {
   const supabase = getSupabase()
   const { data } = await supabase
     .from('reports')
-    .select('id, date, content, created_at')
+    .select('id, date, content, created_at, sources')
     .eq('id', id)
     .single()
   return data
@@ -103,6 +105,33 @@ export default async function ShareReportPage({ params }: Props) {
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.content}</ReactMarkdown>
         </div>
         </ContextMenuWrapper>
+
+        {Array.isArray(report.sources) && (report.sources as TwitterSource[]).length > 0 && (
+          <div className="mt-8 pt-6 border-t border-[#E3E0D8]">
+            <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">
+              Twitter/X Sources ({(report.sources as TwitterSource[]).length})
+            </p>
+            <div className="flex flex-col gap-2">
+              {(report.sources as TwitterSource[]).map((s) => (
+                <a
+                  key={s.id}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 text-xs bg-white border border-[#E3E0D8] hover:border-[#D4622A] px-3 py-2 rounded-lg text-[#374151] hover:text-[#D4622A] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.9 1.153h3.68l-8.04 9.19L24 22.847h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
+                  </svg>
+                  <span className="flex-1">
+                    <span className="font-medium">@{s.username}</span>
+                    <span className="text-[#6B6B6B]"> — {s.text.length > 120 ? s.text.slice(0, 118) + '…' : s.text}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">

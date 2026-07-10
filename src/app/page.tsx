@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import type { TwitterSource } from '@/components/ReportDisplay'
 
 const ReportHistory = dynamic(() => import('@/components/ReportHistory'), { ssr: false })
 const ReportDisplay = dynamic(() => import('@/components/ReportDisplay'), { ssr: false })
@@ -121,6 +122,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
   const [content, setContent] = useState<string>('')
+  const [twitterSources, setTwitterSources] = useState<TwitterSource[]>([])
   const [streaming, setStreaming] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [historyKey, setHistoryKey] = useState(0)
@@ -181,6 +183,7 @@ export default function Home() {
     const res = await fetch(`/api/reports/${id}`)
     const data = await res.json()
     setContent(data.content ?? '')
+    setTwitterSources(data.sources ?? [])
   }, [])
 
   const generateReport = async () => {
@@ -188,6 +191,7 @@ export default function Home() {
     setSelectedId(null)
     setSelectedDate(null)
     setContent('')
+    setTwitterSources([])
     setStreaming(true)
 
     const res = await fetch('/api/generate', { method: 'POST' })
@@ -212,6 +216,9 @@ export default function Home() {
       setSelectedId(reports[0].id)
       setSelectedDate(reports[0].date)
       setSelectedCreatedAt(reports[0].created_at)
+      const reportRes = await fetch(`/api/reports/${reports[0].id}`)
+      const reportData = await reportRes.json()
+      setTwitterSources(reportData.sources ?? [])
     }
   }
 
@@ -507,7 +514,7 @@ export default function Home() {
                   </div>
                 )}
                 <div ref={reportRef}>
-                  <ReportDisplay content={content} streaming={streaming} onCourseCreated={() => setTab('courses')} />
+                  <ReportDisplay content={content} streaming={streaming} onCourseCreated={() => setTab('courses')} twitterSources={twitterSources} />
                 </div>
                 {selectedId && !streaming && (
                   <ContentSuggestions

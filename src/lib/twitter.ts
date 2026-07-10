@@ -54,9 +54,21 @@ Output only the queries, one per line, no numbering or punctuation prefix.`,
   return queries
 }
 
-export async function fetchRecentTweets(queries: string[] = FALLBACK_QUERIES): Promise<string> {
+export type TwitterSource = {
+  id: string
+  url: string
+  username: string
+  text: string
+  query: string
+}
+
+export async function fetchRecentTweets(
+  queries: string[] = FALLBACK_QUERIES
+): Promise<{ text: string; sources: TwitterSource[] }> {
   const client = new TwitterApi(process.env.TWITTER_BEARER_TOKEN!)
   const results: string[] = []
+  const sources: TwitterSource[] = []
+  const seenIds = new Set<string>()
 
   for (const query of queries) {
     const response = await client.v2.search(
@@ -64,14 +76,27 @@ export async function fetchRecentTweets(queries: string[] = FALLBACK_QUERIES): P
       {
         max_results: 10,
         'tweet.fields': ['created_at', 'author_id', 'text'],
+        expansions: ['author_id'],
+        'user.fields': ['username'],
       }
     )
     if (response.data?.data) {
       for (const tweet of response.data.data) {
         results.push(`[${query}] ${tweet.text}`)
+
+        if (seenIds.has(tweet.id)) continue
+        seenIds.add(tweet.id)
+        const username = response.includes.author(tweet)?.username ?? 'i'
+        sources.push({
+          id: tweet.id,
+          url: `https://x.com/${username}/status/${tweet.id}`,
+          username,
+          text: tweet.text,
+          query,
+        })
       }
     }
   }
 
-  return results.join('\n\n')
+  return { text: results.join('\n\n'), sources }
 }
