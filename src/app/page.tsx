@@ -16,6 +16,7 @@ const CoursesSection = dynamic(() => import('@/components/CoursesSection'), { ss
 const ContentLabSection = dynamic(() => import('@/components/ContentLabSection'), { ssr: false })
 const ContentSuggestions = dynamic(() => import('@/components/ContentSuggestions'), { ssr: false })
 const ContextSection = dynamic(() => import('@/components/ContextSection'), { ssr: false })
+const SourcesSection = dynamic(() => import('@/components/SourcesSection'), { ssr: false })
 const UserManagementSection = dynamic(() => import('@/components/UserManagementSection'), { ssr: false })
 const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
@@ -25,7 +26,7 @@ const CompetitiveIntelSection = dynamic(() => import('@/components/CompetitiveIn
 import { createClient } from '@/lib/supabase-browser'
 
 type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'podcast' | 'competitive'
-type SettingsTab = 'context' | 'users'
+type SettingsTab = 'context' | 'sources' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   reports: (
@@ -585,6 +586,19 @@ export default function Home() {
                 </svg>
                 Context
               </button>
+              <button
+                onClick={() => setSettingsTab('sources')}
+                className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                  settingsTab === 'sources'
+                    ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
+                    : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
+                </svg>
+                Sources
+              </button>
               {userEmail === ADMIN_EMAIL && (
                 <button
                   onClick={() => setSettingsTab('users')}
@@ -604,6 +618,7 @@ export default function Home() {
             {/* Settings content */}
             <div className="flex-1 overflow-hidden flex flex-col">
               {settingsTab === 'context' && <ContextSection />}
+              {settingsTab === 'sources' && <SourcesSection />}
               {settingsTab === 'users' && userEmail === ADMIN_EMAIL && <UserManagementSection />}
             </div>
           </div>

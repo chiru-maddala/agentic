@@ -5,6 +5,16 @@ import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 
 export const maxDuration = 300
 
+async function fetchTrackedHandles(): Promise<string[]> {
+  const supabase = getSupabase()
+  const { data } = await supabase
+    .from('tracked_handles')
+    .select('handle')
+    .eq('active', true)
+
+  return (data ?? []).map((row) => row.handle)
+}
+
 async function fetchCoveredTopics(): Promise<string> {
   const supabase = getSupabase()
   const { data } = await supabase
@@ -128,12 +138,13 @@ export async function POST() {
   const today = new Date().toISOString().split('T')[0]
 
   const coveredTopics = await fetchCoveredTopics().catch(() => '')
+  const trackedHandles = await fetchTrackedHandles().catch(() => [])
 
   let tweets: string
   let twitterSources: TwitterSource[] = []
   try {
     const queries = await generateSearchQueries(coveredTopics).catch(() => null)
-    const result = await fetchRecentTweets(queries ?? undefined)
+    const result = await fetchRecentTweets(queries ?? undefined, trackedHandles)
     tweets = result.text
     twitterSources = result.sources
   } catch {
