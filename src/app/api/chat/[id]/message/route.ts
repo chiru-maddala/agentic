@@ -47,6 +47,16 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: { type: 'object', properties: {} },
   },
   {
+    name: 'list_thoughts',
+    description: 'Retrieve the user\'s saved Thoughts — spontaneous hashtag-tagged notes from the Strategic Mirror. Use this when the user asks to analyze, review, summarize, find patterns in, or discuss their thoughts.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        hashtag: { type: 'string', description: 'Optional hashtag (without #) to filter thoughts by' },
+      },
+    },
+  },
+  {
     name: 'search_twitter',
     description: 'Search Twitter/X for live tweets on a topic. Only call this when the user explicitly asks to search Twitter, check Twitter, or look up something on Twitter/X.',
     input_schema: {
@@ -123,6 +133,27 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     if (error) return `Error fetching notes: ${error.message}`
     if (!data || data.length === 0) return 'No notes found.'
     return data.map((n) => `- ${n.title}`).join('\n')
+  }
+
+  if (name === 'list_thoughts') {
+    let query = supabase
+      .from('mirror_thoughts')
+      .select('content, hashtags, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    const hashtag = input.hashtag as string | undefined
+    if (hashtag) query = query.contains('hashtags', [hashtag.toLowerCase()])
+
+    const { data, error } = await query
+    if (error) return `Error fetching thoughts: ${error.message}`
+    if (!data || data.length === 0) return 'No thoughts found.'
+    return data
+      .map((t) => {
+        const date = new Date(t.created_at).toISOString().slice(0, 10)
+        const tags = t.hashtags.length > 0 ? ` (${t.hashtags.map((h: string) => `#${h}`).join(' ')})` : ''
+        return `- [${date}]${tags} ${t.content}`
+      })
+      .join('\n')
   }
 
   return 'Unknown tool'
@@ -340,9 +371,12 @@ export async function POST(
                 block.name,
                 block.input as Record<string, unknown>
               )
-              // Truncate tool results fed back into context to avoid bloating loopMessages
-              const truncated = result.length > 500
-                ? result.slice(0, 500) + '… [truncated for context]'
+              // Truncate tool results fed back into context to avoid bloating loopMessages.
+              // list_thoughts is exempt from the tight cap — its purpose is bulk analysis,
+              // so truncating at 500 chars would only ever surface a handful of thoughts.
+              const resultCap = block.name === 'list_thoughts' ? 6000 : 500
+              const truncated = result.length > resultCap
+                ? result.slice(0, resultCap) + '… [truncated for context]'
                 : result
               toolResults.push({
                 type: 'tool_result',
