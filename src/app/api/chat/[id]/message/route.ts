@@ -3,6 +3,7 @@ import { getSupabase } from '@/lib/supabase'
 import { buildChatSystemPrompt } from '@/lib/prompt'
 import { fetchRecentTweets } from '@/lib/twitter'
 import { getRelevantContext } from '@/lib/context'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 300
 
@@ -215,6 +216,7 @@ async function captureAsChatSignal(
 
   void supabase.from('mirror_signals').insert({
     type: 'chat_insight',
+    category: categoryForType('chat_insight'),
     content: message.slice(0, 500),
     pillar: null,
     metadata: { session_id: sessionId, source: 'chat' },

@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { categoryForType } from '@/lib/signals'
 
 export async function GET() {
   const supabase = getSupabase()
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
   // Auto-signal capture (fire-and-forget)
   void Promise.resolve(supabase.from('mirror_signals').insert({
     type: 'note_created',
+    category: categoryForType('note_created'),
     content: `Saved note: "${data.title}"`,
     pillar: null,
     metadata: { note_id: data.id },

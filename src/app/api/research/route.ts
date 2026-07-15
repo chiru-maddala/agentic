@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { buildSystemPrompt } from '@/lib/prompt'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 300
 
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
           // Auto-signal capture (fire-and-forget)
           void Promise.resolve(supabase.from('mirror_signals').insert({
             type: 'research_done',
+            category: categoryForType('research_done'),
             content: `Ran research: "${title}"`,
             pillar: null,
             metadata: { source_count: sources.length },

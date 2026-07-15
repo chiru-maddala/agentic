@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 120
 
@@ -70,9 +71,17 @@ async function generateActions(): Promise<Response> {
     return `**${p}**\nGoal: ${g.goal_statement || '(not set)'}\nSuccess: ${g.success_criteria || '(not set)'}\nNorth Star: ${g.north_star_metric || '(not set)'}\nConstraints: ${g.constraints_context || '(not set)'}`
   }).join('\n\n')
 
-  const signalsContext = signals.slice(0, 40).map((s) =>
+  const formatSignal = (s: typeof signals[number]) =>
     `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] [${s.type}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
-  ).join('\n')
+
+  const recentSignals = signals.slice(0, 40)
+  const worldSignals = recentSignals.filter((s) => (s.category ?? categoryForType(s.type)) === 'world')
+  const actionSignals = recentSignals.filter((s) => (s.category ?? categoryForType(s.type)) === 'action')
+
+  const signalsContext = [
+    worldSignals.length > 0 ? `World Signals (external intelligence):\n${worldSignals.map(formatSignal).join('\n')}` : '',
+    actionSignals.length > 0 ? `Actions (what Chiru actually did — completions carry more weight than creations):\n${actionSignals.map(formatSignal).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n')
 
   const thoughtsContext = thoughts.length > 0
     ? thoughts.map((t) =>
@@ -98,7 +107,7 @@ Vision: ${vision || '(not set)'}
 GOALS:
 ${goalsContext}
 
-ACTIVITY SIGNALS (recent):
+SIGNALS (recent):
 ${signalsContext || 'None yet.'}
 
 SPONTANEOUS THOUGHTS (recent, raw and unfiltered — often the truest signal of what's actually on his mind):

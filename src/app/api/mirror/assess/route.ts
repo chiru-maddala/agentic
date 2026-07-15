@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 300
 
@@ -59,33 +60,27 @@ async function generateAssessment(): Promise<Response> {
       : 'No goals defined yet.'
 
   // Signals context
-  // Separate signals by source so the coach understands data provenance:
-  // - report_insight / report_strategic → extracted from daily AI intelligence reports
-  // - chat_insight → things the CEO said or expressed in chat sessions
-  // - everything else → manual check-ins entered directly in the Mirror
-  const reportInsights = signals.filter((s) =>
-    s.type === 'report_insight' || s.type === 'report_strategic'
-  )
-  const chatInsights = signals.filter((s) => s.type === 'chat_insight')
-  const activitySignals = signals.filter((s) =>
-    s.type !== 'report_insight' &&
-    s.type !== 'report_strategic' &&
-    s.type !== 'report_generated' &&
-    s.type !== 'chat_insight'
-  )
+  // World Signals = external intelligence (reports, research) — what's happening
+  // outside Intellina that's relevant to it.
+  // Actions = evidence of what Chiru actually did (check-ins, tasks, notes, chats).
+  const category = (s: typeof signals[number]) => s.category ?? categoryForType(s.type)
+  const worldSignals = signals.filter((s) => category(s) === 'world')
+  const actionSignals = signals.filter((s) => category(s) === 'action')
+  const chatInsights = actionSignals.filter((s) => s.type === 'chat_insight')
+  const otherActions = actionSignals.filter((s) => s.type !== 'chat_insight')
 
   const formatSignal = (s: typeof signals[number]) =>
     `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
 
   const signalsContext = [
-    reportInsights.length > 0
-      ? `### Intelligence from Recent Reports\n${reportInsights.map(formatSignal).join('\n')}`
+    worldSignals.length > 0
+      ? `### World Signals (external intelligence — reports & research)\n${worldSignals.map(formatSignal).join('\n')}`
       : '',
     chatInsights.length > 0
-      ? `### CEO's Own Words (from Chat Sessions)\n${chatInsights.map(formatSignal).join('\n')}`
+      ? `### Actions — CEO's Own Words (from Chat Sessions)\n${chatInsights.map(formatSignal).join('\n')}`
       : '',
-    activitySignals.length > 0
-      ? `### Manual Activity Signals\n${activitySignals.map(formatSignal).join('\n')}`
+    otherActions.length > 0
+      ? `### Actions — Activity Log (check-ins, tasks, notes)\n${otherActions.map(formatSignal).join('\n')}`
       : '',
   ]
     .filter(Boolean)
@@ -132,15 +127,14 @@ async function generateAssessment(): Promise<Response> {
 
 Your job is to give an honest, specific, and actionable coaching assessment. Not a summary — a mirror. Name what you see. Call out the gaps without being harsh. Point to the highest-leverage moves. Ground every observation in the actual signals and data you have — never be vague, never be generic.
 
-You have four types of signals available:
-- **Intelligence from Recent Reports**: AI landscape insights auto-extracted from daily research reports, tagged by pillar. These represent external signals — what's happening in the world that is relevant to Intellina.
-- **CEO's Own Words (from Chat Sessions)**: Statements Chiru has made in chat conversations — his thinking, concerns, ideas, and reflections expressed in his own words. These are often the richest signal of what's really on his mind.
-- **Manual Activity Signals**: Self-reported check-ins and updates entered directly in the Mirror.
+You have two categories of signals, plus Thoughts:
+- **World Signals**: External intelligence auto-extracted from daily research reports and research runs, tagged by pillar where relevant. These represent what's happening in the world outside Intellina — market moves, competitor activity, trends — not anything Chiru did himself.
+- **Actions**: Evidence of what Chiru actually did — manual check-ins, tasks created and completed, notes saved, and things he said in chat sessions ("CEO's Own Words"). Within Actions, weigh **completions more heavily than creations**: creating a task signals intent and direction, but completing one is real, executed progress. A pillar with many tasks created and few completed is not "active" — it's stalled.
 - **Thoughts**: Short, spontaneous, unfiltered notes Chiru jots down in the moment — often tagged with hashtags. These are raw and unstructured, but they capture things he wouldn't otherwise write down: reactions, half-formed ideas, frustrations, sparks of interest. Treat these as high-signal, low-polish — the rawest window into what's actually on his mind day to day.
 
-Use all four in combination. Pay special attention to what Chiru says in his own words from chat and in his thoughts — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the intelligence reports are signalling (an opportunity, a threat, a trend) and what the activity/chat/thoughts show, name it explicitly. That gap is where the coaching is.
+Use all of these in combination. Pay special attention to what Chiru says in his own words from chat and in his thoughts — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the World Signals are indicating (an opportunity, a threat, a trend) and what the Actions show, name it explicitly. That gap is where the coaching is.
 
-If goals are not yet defined, work from the activity signals to infer what Chiru seems to be prioritising, and note explicitly that the goals need to be set.`
+If goals are not yet defined, work from the Actions to infer what Chiru seems to be prioritising, and note explicitly that the goals need to be set.`
 
   const userPrompt = `Here is the full context for this assessment:
 

@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { getRelevantContext } from '@/lib/context'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 300
 
@@ -69,6 +70,7 @@ export async function POST(
           // Auto-signal capture (fire-and-forget)
           void Promise.resolve(supabase.from('mirror_signals').insert({
             type: 'task_completed',
+            category: categoryForType('task_completed'),
             content: `Completed task: "${task.title}"`,
             pillar: task.pillar ?? null,
             metadata: { task_id: task.id },

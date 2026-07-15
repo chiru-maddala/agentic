@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/lib/twitter'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
+import { categoryForType } from '@/lib/signals'
 
 export const maxDuration = 300
 
@@ -84,6 +85,7 @@ async function extractAndInsertPillarSignals(
   const supabase = getSupabase()
   const signals: {
     type: string
+    category: ReturnType<typeof categoryForType>
     content: string
     pillar: string | null
     metadata: Record<string, unknown>
@@ -92,6 +94,7 @@ async function extractAndInsertPillarSignals(
   // One summary signal per report (event log)
   signals.push({
     type: 'report_generated',
+    category: categoryForType('report_generated'),
     content: `Daily intelligence report generated for ${date}`,
     pillar: null,
     metadata: { report_id: reportId, date },
@@ -105,6 +108,7 @@ async function extractAndInsertPillarSignals(
     for (const insight of insights) {
       signals.push({
         type: 'report_insight',
+        category: categoryForType('report_insight'),
         content: insight,
         pillar,
         metadata: { report_id: reportId, date },
@@ -119,6 +123,7 @@ async function extractAndInsertPillarSignals(
     if (text.length > 20) {
       signals.push({
         type: 'report_strategic',
+        category: categoryForType('report_strategic'),
         content: text,
         pillar: null,
         metadata: { report_id: reportId, date },

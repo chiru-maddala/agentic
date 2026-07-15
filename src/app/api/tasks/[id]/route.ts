@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { categoryForType } from '@/lib/signals'
 
 export async function PATCH(
   req: Request,
@@ -14,8 +15,32 @@ export async function PATCH(
   if (body.description !== undefined) update.description = body.description
   if (body.pillar !== undefined) update.pillar = body.pillar
 
+  let justCompleted: { title: string; pillar: string | null } | null = null
+  if (body.status === 'done') {
+    const { data: existing } = await supabase
+      .from('tasks')
+      .select('title, pillar, status')
+      .eq('id', id)
+      .single()
+    if (existing && existing.status !== 'done') {
+      justCompleted = { title: existing.title, pillar: existing.pillar ?? null }
+    }
+  }
+
   const { error } = await supabase.from('tasks').update(update).eq('id', id)
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  if (justCompleted) {
+    // Auto-signal capture (fire-and-forget)
+    void Promise.resolve(supabase.from('mirror_signals').insert({
+      type: 'task_completed',
+      category: categoryForType('task_completed'),
+      content: `Completed task: "${justCompleted.title}"`,
+      pillar: justCompleted.pillar,
+      metadata: { task_id: id },
+    })).catch(() => {})
+  }
+
   return Response.json({ success: true })
 }
 

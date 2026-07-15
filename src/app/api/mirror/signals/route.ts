@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { categoryForType } from '@/lib/signals'
 
 export async function GET(req: Request) {
   const supabase = getSupabase()
@@ -16,8 +17,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const supabase = getSupabase()
   const body = await req.json()
+  const type = body.type ?? 'manual_checkin'
   const { error } = await supabase.from('mirror_signals').insert({
-    type: body.type ?? 'manual_checkin',
+    type,
+    category: categoryForType(type),
     content: body.content,
     pillar: body.pillar ?? null,
     metadata: body.metadata ?? {},

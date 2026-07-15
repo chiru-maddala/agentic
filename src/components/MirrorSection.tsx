@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
 import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
 import type { Thought } from '@/app/api/mirror/thoughts/route'
+import { categoryForType, type SignalCategory } from '@/lib/signals'
 
 type MirrorTab = 'intent' | 'coach' | 'signals' | 'thoughts'
 
@@ -21,6 +22,7 @@ type Goal = {
 type Signal = {
   id: string
   type: string
+  category?: SignalCategory
   content: string
   pillar: string | null
   created_at: string
@@ -361,6 +363,7 @@ export default function MirrorSection() {
   const [pendingGoals, setPendingGoals] = useState<Record<string, Goal>>({})
   const [savingPillars, setSavingPillars] = useState<Set<string>>(new Set())
   const [signals, setSignals] = useState<Signal[]>([])
+  const [signalFilter, setSignalFilter] = useState<'all' | SignalCategory>('all')
   const [checkin, setCheckin] = useState('')
   const [checkinPillar, setCheckinPillar] = useState('')
   const [checkinSaving, setCheckinSaving] = useState(false)
@@ -396,6 +399,10 @@ export default function MirrorSection() {
     const data = await res.json()
     setSignals(Array.isArray(data) ? data : [])
   }, [])
+
+  const filteredSignals = signalFilter === 'all'
+    ? signals
+    : signals.filter((s) => (s.category ?? categoryForType(s.type)) === signalFilter)
 
   const loadThoughts = useCallback(async () => {
     const res = await fetch('/api/mirror/thoughts')
@@ -758,7 +765,7 @@ export default function MirrorSection() {
                 {/* Pillar cards */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Status & Top Actions</h2>
+                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Status & Suggested Actions</h2>
                     <p className="text-xs text-[#C4BFB5]">Hover an action to add it as a Task</p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -867,7 +874,7 @@ export default function MirrorSection() {
                 <span className="text-green-600 text-lg">✓</span>
                 <div>
                   <p className="text-sm font-medium text-green-800">All 3 pillars defined</p>
-                  <p className="text-xs text-green-600 mt-0.5">Run an assessment to see your progress, gaps, and top actions.</p>
+                  <p className="text-xs text-green-600 mt-0.5">Run an assessment to see your progress, gaps, and suggested actions.</p>
                 </div>
                 <button onClick={runBoth} disabled={isRunning}
                   className="ml-auto text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">
@@ -908,16 +915,35 @@ export default function MirrorSection() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Activity Feed</h2>
-                <span className="text-xs text-[#C4BFB5]">{signals.length} signals · used in next assessment</span>
+                <span className="text-xs text-[#C4BFB5]">{filteredSignals.length} of {signals.length} signals · used in next assessment</span>
               </div>
-              {signals.length === 0 ? (
+              <div className="flex items-center gap-1 mb-3">
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'world', label: 'World Signals' },
+                  { id: 'action', label: 'Actions' },
+                ] as { id: 'all' | SignalCategory; label: string }[]).map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setSignalFilter(f.id)}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+                      signalFilter === f.id
+                        ? 'bg-[#1A1A1A] text-white'
+                        : 'bg-[#F5F3EE] text-[#6B6B6B] hover:bg-[#E3E0D8]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              {filteredSignals.length === 0 ? (
                 <div className="bg-white border border-dashed border-[#E3E0D8] rounded-xl p-8 text-center">
                   <p className="text-sm text-[#9CA3AF]">No signals yet.</p>
                   <p className="text-xs text-[#C4BFB5] mt-1">Signals are captured automatically as you use the app.</p>
                 </div>
               ) : (
                 <div className="bg-white border border-[#E3E0D8] rounded-xl shadow-sm divide-y divide-[#F5F3EE]">
-                  {signals.map((s) => (
+                  {filteredSignals.map((s) => (
                     <div key={s.id} className="flex items-start gap-3 px-4 py-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
