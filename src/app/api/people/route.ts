@@ -4,12 +4,11 @@ import { categoryForType } from '@/lib/signals'
 export async function GET() {
   const supabase = getSupabase()
   const { data, error } = await supabase
-    .from('tasks')
+    .from('people')
     .select('*')
-    .order('created_at', { ascending: false })
-
+    .order('name')
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data)
+  return Response.json(data ?? [])
 }
 
 export async function POST(req: Request) {
@@ -17,29 +16,27 @@ export async function POST(req: Request) {
   const body = await req.json()
 
   const { data, error } = await supabase
-    .from('tasks')
+    .from('people')
     .insert({
-      title: body.title,
-      description: body.description ?? null,
-      pillar: body.pillar ?? 'General',
-      status: body.status ?? 'todo',
-      source: body.source ?? 'manual',
-      report_id: body.report_id ?? null,
-      person_id: body.person_id ?? null,
-      meeting_id: body.meeting_id ?? null,
+      name: body.name,
+      type: body.type ?? 'internal',
+      role: body.role ?? null,
+      company: body.company ?? null,
+      email: body.email ?? null,
+      primary_pillar: body.primary_pillar ?? null,
+      notes: body.notes ?? null,
     })
     .select()
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  // Auto-signal capture (fire-and-forget)
   void Promise.resolve(supabase.from('mirror_signals').insert({
-    type: 'task_created',
-    category: categoryForType('task_created'),
-    content: `Created task: "${data.title}"`,
-    pillar: data.pillar ?? null,
-    metadata: { task_id: data.id, source: data.source },
+    type: 'person_added',
+    category: categoryForType('person_added'),
+    content: `Added ${data.type} person: "${data.name}"`,
+    pillar: data.primary_pillar ?? null,
+    metadata: { person_id: data.id },
   })).catch(() => {})
 
   return Response.json(data)

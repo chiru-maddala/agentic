@@ -14,6 +14,8 @@ export async function PATCH(
   if (body.title !== undefined) update.title = body.title
   if (body.description !== undefined) update.description = body.description
   if (body.pillar !== undefined) update.pillar = body.pillar
+  if (body.person_id !== undefined) update.person_id = body.person_id
+  if (body.meeting_id !== undefined) update.meeting_id = body.meeting_id
 
   let justCompleted: { title: string; pillar: string | null } | null = null
   if (body.status === 'done') {
