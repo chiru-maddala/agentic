@@ -245,3 +245,8 @@ alter table tasks add column if not exists person_id uuid references people(id) 
 alter table tasks add column if not exists meeting_id uuid references meetings(id) on delete set null;
 create index if not exists tasks_person_id_idx on tasks(person_id);
 create index if not exists tasks_meeting_id_idx on tasks(meeting_id);
+
+-- Allow 'meeting' as a task source (action items accepted from a Meeting's suggestions)
+alter table tasks drop constraint if exists tasks_source_check;
+alter table tasks add constraint tasks_source_check
+  check (source in ('manual', 'report', 'chat', 'mirror', 'meeting'));

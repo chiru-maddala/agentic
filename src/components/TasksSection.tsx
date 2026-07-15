@@ -9,7 +9,7 @@ type Task = {
   description: string | null
   pillar: string
   status: 'todo' | 'in-progress' | 'done'
-  source: 'manual' | 'report' | 'chat'
+  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting'
   document_content: string | null
   created_at: string
 }
@@ -443,7 +443,7 @@ export default function TasksSection() {
                                       <span className={`text-sm ${task.status === 'done' ? 'line-through text-[#9CA3AF]' : 'text-[#1A1A1A]'}`}>
                                         {task.title}
                                       </span>
-                                      {(task.source === 'report' || task.source === 'chat') && (
+                                      {(task.source === 'report' || task.source === 'chat' || task.source === 'meeting') && (
                                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-0.5 rounded-full">
                                           from {task.source}
                                         </span>
