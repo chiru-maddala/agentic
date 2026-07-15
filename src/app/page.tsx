@@ -24,10 +24,11 @@ const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: f
 const PodcastSection = dynamic(() => import('@/components/PodcastSection'), { ssr: false })
 const CompetitiveIntelSection = dynamic(() => import('@/components/CompetitiveIntelSection'), { ssr: false })
 const MeetingsSection = dynamic(() => import('@/components/MeetingsSection'), { ssr: false })
+const GoalsSection = dynamic(() => import('@/components/GoalsSection'), { ssr: false })
 const PeopleSettingsSection = dynamic(() => import('@/components/PeopleSettingsSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'meetings' | 'podcast' | 'competitive'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'goals' | 'meetings' | 'podcast' | 'competitive'
 type SettingsTab = 'context' | 'sources' | 'people' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -83,6 +84,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <path d="M12 22V12"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="7" r="5"/>
     </svg>
   ),
+  goals: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>
+    </svg>
+  ),
   meetings: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>
@@ -103,6 +109,7 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
 const TABS: { id: Tab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'mirror', label: 'Strategic Mirror' },
+  { id: 'goals', label: 'Goals' },
   { id: 'meetings', label: 'Meetings' },
   { id: 'reports', label: 'Reports' },
   { id: 'chat', label: 'Chat' },
@@ -554,6 +561,7 @@ export default function Home() {
         {tab === 'contentlab' && <ContentLabSection />}
         {tab === 'graph' && <KnowledgeGraphSection />}
         {tab === 'mirror' && <MirrorSection />}
+        {tab === 'goals' && <GoalsSection />}
         {tab === 'meetings' && <MeetingsSection />}
         {tab === 'research' && <ResearchSection onContextChange={setResearchContext} />}
         {tab === 'podcast' && <PodcastSection />}
@@ -564,7 +572,8 @@ export default function Home() {
               tab === 'reports' ? `reports. ${selectedDate ? `Viewing report from ${selectedDate}.` : 'No report selected.'}${content ? ` Report content: ${content.slice(0, 600)}` : ''}`
               : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
               : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
-              : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — goals, signals, thoughts, and coaching assessment.'
+              : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — signals, thoughts, and coaching assessment.'
+              : tab === 'goals' ? 'goals. Viewing Goals — measurable per-pillar goals, their plans, and everything aligned to them.'
               : tab === 'meetings' ? 'meetings. Viewing Meetings — logged meeting notes, attendees, and AI-suggested action items.'
               : tab === 'research' ? researchContext
               : tab === 'dashboard' ? 'dashboard. Viewing the main Dashboard overview.'

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 type PersonRef = { id: string; name: string }
+type GoalRef = { id: string; pillar: string; name: string }
 
 type SuggestedTask = {
   title: string
@@ -17,6 +18,7 @@ type Meeting = {
   meeting_date: string
   pillar: string | null
   notes: string | null
+  goal_id: string | null
   suggested_tasks: SuggestedTask[]
   created_at: string
   meeting_people: { people: PersonRef }[]
@@ -34,6 +36,7 @@ type FormState = {
   pillar: string
   notes: string
   person_ids: string[]
+  goal_id: string
 }
 
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
@@ -53,12 +56,13 @@ const URGENCY_DOT: Record<SuggestedTask['urgency'], string> = {
 const today = () => new Date().toISOString().slice(0, 10)
 
 function emptyForm(): FormState {
-  return { title: '', meeting_date: today(), pillar: '', notes: '', person_ids: [] }
+  return { title: '', meeting_date: today(), pillar: '', notes: '', person_ids: [], goal_id: '' }
 }
 
 function MeetingCard({
   meeting,
   people,
+  goals,
   tasks,
   extracting,
   addingKey,
@@ -67,6 +71,7 @@ function MeetingCard({
 }: {
   meeting: Meeting
   people: PersonRef[]
+  goals: GoalRef[]
   tasks: TaskRef[]
   extracting: boolean
   addingKey: string | null
@@ -74,6 +79,7 @@ function MeetingCard({
   onAddTask: (meeting: Meeting, suggestion: SuggestedTask, index: number) => void
 }) {
   const attendees = (meeting.meeting_people ?? []).map((mp) => mp.people).filter(Boolean)
+  const linkedGoal = meeting.goal_id ? goals.find((g) => g.id === meeting.goal_id) : null
   const meetingTasks = tasks.filter((t) => t.meeting_id === meeting.id)
   const isAdded = (suggestion: SuggestedTask, index: number) =>
     addedKeys.has(`${meeting.id}-${index}`) || meetingTasks.some((t) => t.title === suggestion.title)
@@ -88,6 +94,11 @@ function MeetingCard({
             {meeting.pillar && (
               <span className={`text-xs border px-2 py-0.5 rounded-full ${PILLAR_STYLES[meeting.pillar] ?? ''}`}>
                 {meeting.pillar}
+              </span>
+            )}
+            {linkedGoal && (
+              <span className="text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-0.5 rounded-full">
+                🎯 {linkedGoal.name}
               </span>
             )}
           </div>
@@ -156,6 +167,7 @@ function MeetingCard({
 export default function MeetingsSection() {
   const [meetings, setMeetings] = useState<Meeting[]>([])
   const [people, setPeople] = useState<PersonRef[]>([])
+  const [goals, setGoals] = useState<GoalRef[]>([])
   const [tasks, setTasks] = useState<TaskRef[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -169,18 +181,21 @@ export default function MeetingsSection() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [meetingsRes, peopleRes, tasksRes] = await Promise.all([
+      const [meetingsRes, peopleRes, goalsRes, tasksRes] = await Promise.all([
         fetch('/api/meetings'),
         fetch('/api/people'),
+        fetch('/api/mirror/pillar-goals'),
         fetch('/api/tasks'),
       ])
-      const [meetingsData, peopleData, tasksData] = await Promise.all([
+      const [meetingsData, peopleData, goalsData, tasksData] = await Promise.all([
         meetingsRes.json(),
         peopleRes.json(),
+        goalsRes.json(),
         tasksRes.json(),
       ])
       if (Array.isArray(meetingsData)) setMeetings(meetingsData)
       if (Array.isArray(peopleData)) setPeople(peopleData)
+      if (Array.isArray(goalsData)) setGoals(goalsData)
       if (Array.isArray(tasksData)) setTasks(tasksData)
     } finally {
       setLoading(false)
@@ -212,6 +227,7 @@ export default function MeetingsSection() {
           pillar: form.pillar || null,
           notes: form.notes.trim() || null,
           person_ids: form.person_ids,
+          goal_id: form.goal_id || null,
         }),
       })
       const created: Meeting = await res.json()
@@ -256,6 +272,7 @@ export default function MeetingsSection() {
           source: 'meeting',
           meeting_id: meeting.id,
           person_id: suggestion.person_id ?? null,
+          goal_id: meeting.goal_id ?? null,
         }),
       })
       const created: TaskRef & { error?: string } = await res.json()
@@ -327,11 +344,20 @@ export default function MeetingsSection() {
               />
               <select
                 value={form.pillar}
-                onChange={(e) => setForm({ ...form, pillar: e.target.value })}
+                onChange={(e) => setForm({ ...form, pillar: e.target.value, goal_id: '' })}
                 className="text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2"
               >
                 <option value="">No pillar</option>
                 {PILLARS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select
+                value={form.goal_id}
+                onChange={(e) => setForm({ ...form, goal_id: e.target.value })}
+                disabled={!form.pillar}
+                className="text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 disabled:opacity-50"
+              >
+                <option value="">No goal</option>
+                {goals.filter((g) => g.pillar === form.pillar).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div>
@@ -389,7 +415,7 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {upcoming.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
+                    <MeetingCard key={m.id} meeting={m} people={people} goals={goals} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
                   ))}
                 </div>
               </div>
@@ -401,7 +427,7 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {past.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
+                    <MeetingCard key={m.id} meeting={m} people={people} goals={goals} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
                   ))}
                 </div>
               </div>

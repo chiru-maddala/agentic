@@ -23,6 +23,7 @@ export async function POST(req: Request) {
       meeting_date: body.meeting_date,
       pillar: body.pillar ?? null,
       notes: body.notes ?? null,
+      goal_id: body.goal_id ?? null,
     })
     .select()
     .single()

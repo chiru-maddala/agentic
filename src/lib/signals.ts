@@ -14,6 +14,7 @@ export const SIGNAL_TYPE_CATEGORY: Record<string, SignalCategory> = {
   chat_insight: 'action',
   person_added: 'action',
   meeting_added: 'action',
+  goal_progress_updated: 'action',
 }
 
 export function categoryForType(type: string): SignalCategory {

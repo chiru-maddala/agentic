@@ -13,6 +13,7 @@ export async function PATCH(
   if (body.meeting_date !== undefined) update.meeting_date = body.meeting_date
   if (body.pillar !== undefined) update.pillar = body.pillar
   if (body.notes !== undefined) update.notes = body.notes
+  if (body.goal_id !== undefined) update.goal_id = body.goal_id
 
   if (Object.keys(update).length > 0) {
     const { error } = await supabase.from('meetings').update(update).eq('id', id)

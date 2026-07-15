@@ -1,6 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { categoryForType } from '@/lib/signals'
+import { computeGoalPacing } from '@/lib/goals'
+
+const PACING_LABEL: Record<string, string> = {
+  'no-target': '',
+  'no-progress': ' — no progress logged yet',
+  ahead: ' — AHEAD OF PACE',
+  'on-pace': ' — on pace',
+  behind: ' — BEHIND PACE',
+  overdue: ' — OVERDUE',
+}
 
 export const maxDuration = 120
 
@@ -66,7 +76,10 @@ async function generateActions(): Promise<Response> {
     const pillarGoals = goals.filter((g) => g.pillar === p)
     if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
     const lines = pillarGoals
-      .map((g) => `- ${g.name} (target: ${g.target_number ?? '?'} by ${g.target_date ?? 'no date set'})`)
+      .map((g) => {
+        const pacing = computeGoalPacing(g)
+        return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+      })
       .join('\n')
     return `**${p}**\n${lines}`
   }).join('\n\n')

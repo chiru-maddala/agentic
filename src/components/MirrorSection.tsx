@@ -6,18 +6,9 @@ import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/rout
 import type { Thought } from '@/app/api/mirror/thoughts/route'
 import { categoryForType, type SignalCategory } from '@/lib/signals'
 
-type MirrorTab = 'intent' | 'coach' | 'signals' | 'thoughts'
+type MirrorTab = 'coach' | 'signals' | 'thoughts'
 
 const THOUGHT_MAX_LENGTH = 280
-
-type PillarGoal = {
-  id: string
-  pillar: string
-  name: string
-  target_number: number | null
-  target_date: string | null
-  created_at: string
-}
 
 type Signal = {
   id: string
@@ -61,94 +52,6 @@ const SIGNAL_META: Record<string, { label: string; color: string; icon: string }
   note_created:     { label: 'Note saved',    color: 'bg-purple-50 text-purple-700',      icon: '📝' },
   chat_session:     { label: 'Chat',          color: 'bg-teal-50 text-teal-700',          icon: '💬' },
   research_done:    { label: 'Research',      color: 'bg-indigo-50 text-indigo-700',      icon: '🔍' },
-}
-
-// ─── Pillar Goals Card ────────────────────────────────────────────────────────
-function PillarGoalsCard({ pillar, goals, onAdd, onDelete }: {
-  pillar: string
-  goals: PillarGoal[]
-  onAdd: (pillar: string, name: string, targetNumber: string, targetDate: string) => Promise<void>
-  onDelete: (id: string) => void
-}) {
-  const colors = PILLAR_COLORS[pillar]
-  const [name, setName] = useState('')
-  const [targetNumber, setTargetNumber] = useState('')
-  const [targetDate, setTargetDate] = useState('')
-  const [adding, setAdding] = useState(false)
-
-  const submit = async () => {
-    if (!name.trim()) return
-    setAdding(true)
-    try {
-      await onAdd(pillar, name.trim(), targetNumber, targetDate)
-      setName(''); setTargetNumber(''); setTargetDate('')
-    } finally {
-      setAdding(false)
-    }
-  }
-
-  return (
-    <div className={`bg-white border ${colors.border} rounded-xl overflow-hidden shadow-sm`}>
-      <div className="flex items-center gap-2 px-5 py-3 border-b border-[#E3E0D8] bg-[#FAF9F6]">
-        <span className="text-base">{colors.icon}</span>
-        <span className="text-sm font-semibold text-[#1A1A1A]">{pillar}</span>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${colors.badge}`}>
-          {pillar === 'Learning AI' ? 'Cypher · AutoCampus · RED AI' :
-           pillar === 'Enterprise AI' ? 'Orchea.ai' : 'TerraNine · MATRIX'}
-        </span>
-      </div>
-      {goals.length > 0 && (
-        <div className="divide-y divide-[#F5F3EE]">
-          {goals.map((g) => (
-            <div key={g.id} className="px-5 py-3 flex items-start gap-3 group">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{g.name}</p>
-                <p className="text-xs text-[#9CA3AF] mt-0.5">
-                  Target: {g.target_number ?? '?'}{g.target_date ? ` by ${new Date(`${g.target_date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
-                </p>
-              </div>
-              <button
-                onClick={() => onDelete(g.id)}
-                className="opacity-0 group-hover:opacity-100 text-[#C4BFB5] hover:text-red-500 transition-opacity text-xs p-1"
-                title="Delete goal"
-              >✕</button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="px-5 py-3 border-t border-[#F5F3EE] bg-[#FAF9F6] space-y-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-          placeholder="Goal name"
-          className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
-        />
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={targetNumber}
-            onChange={(e) => setTargetNumber(e.target.value)}
-            placeholder="Target number"
-            className="flex-1 text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
-          />
-          <input
-            type="date"
-            value={targetDate}
-            onChange={(e) => setTargetDate(e.target.value)}
-            className="flex-1 text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
-          />
-        </div>
-        <button
-          onClick={submit}
-          disabled={adding || !name.trim()}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[#D4622A] hover:bg-[#C05520] text-white disabled:opacity-50 transition-colors"
-        >
-          {adding ? 'Adding…' : '+ Add Goal'}
-        </button>
-      </div>
-    </div>
-  )
 }
 
 // ─── Pillar Action Card ───────────────────────────────────────────────────────
@@ -390,7 +293,6 @@ function ThoughtCard({ thought, onDelete, onEdit, onHashtagClick }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MirrorSection() {
   const [tab, setTab] = useState<MirrorTab>('coach')
-  const [pillarGoals, setPillarGoals] = useState<PillarGoal[]>([])
   const [signals, setSignals] = useState<Signal[]>([])
   const [signalFilter, setSignalFilter] = useState<'all' | SignalCategory>('all')
   const [checkin, setCheckin] = useState('')
@@ -408,12 +310,6 @@ export default function MirrorSection() {
   const [thoughtDraft, setThoughtDraft] = useState('')
   const [postingThought, setPostingThought] = useState(false)
   const [thoughtFilter, setThoughtFilter] = useState<string | null>(null)
-
-  const loadPillarGoals = useCallback(async () => {
-    const res = await fetch('/api/mirror/pillar-goals')
-    const data = await res.json()
-    setPillarGoals(Array.isArray(data) ? data : [])
-  }, [])
 
   const loadSignals = useCallback(async () => {
     const res = await fetch('/api/mirror/signals?limit=60')
@@ -451,29 +347,7 @@ export default function MirrorSection() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadPillarGoals(); loadSignals(); loadThoughts(); loadCached() }, [loadPillarGoals, loadSignals, loadThoughts, loadCached])
-
-  const addPillarGoal = async (pillar: string, name: string, targetNumber: string, targetDate: string) => {
-    const res = await fetch('/api/mirror/pillar-goals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pillar,
-        name,
-        target_number: targetNumber ? Number(targetNumber) : null,
-        target_date: targetDate || null,
-      }),
-    })
-    if (res.ok) {
-      const created: PillarGoal = await res.json()
-      setPillarGoals((prev) => [...prev, created])
-    }
-  }
-
-  const deletePillarGoal = async (id: string) => {
-    setPillarGoals((prev) => prev.filter((g) => g.id !== id))
-    await fetch(`/api/mirror/pillar-goals/${id}`, { method: 'DELETE' })
-  }
+  useEffect(() => { loadSignals(); loadThoughts(); loadCached() }, [loadSignals, loadThoughts, loadCached])
 
   const submitCheckin = async () => {
     if (!checkin.trim()) return
@@ -631,8 +505,6 @@ export default function MirrorSection() {
     })
   }
 
-  const goalsFilledCount = PILLARS.filter((p) => pillarGoals.some((g) => g.pillar === p)).length
-
   const isRunning = actionsLoading || assessing
   const hasData = actions !== null
   const runAt = actionsAt ?? lastAssessedAt
@@ -656,11 +528,6 @@ export default function MirrorSection() {
           <div className="flex items-center gap-2">
             <span className="text-lg">🪞</span>
             <h1 className="text-base font-semibold text-[#1A1A1A]">Strategic Mirror</h1>
-            {goalsFilledCount < 3 && (
-              <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full">
-                {goalsFilledCount}/3 pillars defined
-              </span>
-            )}
           </div>
           <p className="text-xs text-[#9CA3AF] mt-0.5">Define your goals · see where you stand · take action</p>
         </div>
@@ -688,7 +555,6 @@ export default function MirrorSection() {
       <div className="flex items-center gap-1 px-6 py-2 border-b border-[#E3E0D8] bg-white flex-shrink-0">
         {([
           { id: 'coach', label: 'Coach', icon: '🔮', desc: runAt ? `Last run ${new Date(runAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Not yet run' },
-          { id: 'intent', label: 'Intent', icon: '🎯', desc: `${goalsFilledCount}/3 pillars` },
           { id: 'signals', label: 'Signals', icon: '📶', desc: `${signals.length} captured` },
           { id: 'thoughts', label: 'Thoughts', icon: '💭', desc: `${thoughts.length} captured` },
         ] as { id: MirrorTab; label: string; icon: string; desc: string }[]).map((t) => (
@@ -721,11 +587,9 @@ export default function MirrorSection() {
                   The coach reads your goals, activity signals, task data, and recent reports —
                   then shows you where you stand and the top 3 moves per pillar.
                 </p>
-                {goalsFilledCount === 0 && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg mb-4">
-                    Tip: Define your goals in the Intent tab first for a richer assessment.
-                  </p>
-                )}
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg mb-4">
+                  Tip: Define your goals in the Goals section first for a richer assessment.
+                </p>
                 <button
                   onClick={runBoth}
                   className="bg-[#D4622A] hover:bg-[#C05520] text-white text-sm font-medium py-2.5 px-6 rounded-lg transition-colors"
@@ -828,42 +692,6 @@ export default function MirrorSection() {
             {!actions && !actionsLoading && assessing && (
               <div className="bg-white border border-[#E3E0D8] rounded-2xl px-8 py-8 shadow-sm">
                 <ReportDisplay content={assessment} streaming={assessing} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── INTENT TAB ─────────────────────────────────────────── */}
-        {tab === 'intent' && (
-          <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Goals</h2>
-                <span className="text-xs text-[#C4BFB5]">{goalsFilledCount}/3 pillars have at least one goal</span>
-              </div>
-              <div className="space-y-5">
-                {PILLARS.map((pillar) => (
-                  <PillarGoalsCard
-                    key={pillar}
-                    pillar={pillar}
-                    goals={pillarGoals.filter((g) => g.pillar === pillar)}
-                    onAdd={addPillarGoal}
-                    onDelete={deletePillarGoal}
-                  />
-                ))}
-              </div>
-            </div>
-            {goalsFilledCount === 3 && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 flex items-center gap-3">
-                <span className="text-green-600 text-lg">✓</span>
-                <div>
-                  <p className="text-sm font-medium text-green-800">All 3 pillars defined</p>
-                  <p className="text-xs text-green-600 mt-0.5">Run an assessment to see your progress, gaps, and suggested actions.</p>
-                </div>
-                <button onClick={runBoth} disabled={isRunning}
-                  className="ml-auto text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition-colors">
-                  Run Assessment →
-                </button>
               </div>
             )}
           </div>

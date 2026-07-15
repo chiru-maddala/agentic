@@ -9,12 +9,15 @@ type Task = {
   description: string | null
   pillar: string
   status: 'todo' | 'in-progress' | 'done'
-  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting'
+  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting' | 'goal_plan'
   document_content: string | null
+  goal_id: string | null
   created_at: string
 }
 
-type EditState = { title: string; description: string; pillar: string }
+type GoalRef = { id: string; name: string }
+
+type EditState = { title: string; description: string; pillar: string; goal_id: string }
 
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General']
 const STATUSES: Task['status'][] = ['todo', 'in-progress', 'done']
@@ -27,6 +30,12 @@ const STATUS_COLORS: Record<Task['status'], string> = {
   'todo': 'bg-[#F5F3EE] text-[#6B6B6B] border border-[#E3E0D8]',
   'in-progress': 'bg-amber-50 text-amber-700 border border-amber-200',
   'done': 'bg-green-50 text-green-700 border border-green-200',
+}
+const SOURCE_LABELS: Partial<Record<Task['source'], string>> = {
+  report: 'report',
+  chat: 'chat',
+  meeting: 'meeting',
+  goal_plan: 'goal plan',
 }
 
 function DocumentPanel({
@@ -173,12 +182,13 @@ function DocumentPanel({
 
 export default function TasksSection() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [goals, setGoals] = useState<GoalRef[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', pillar: 'General' })
+  const [form, setForm] = useState({ title: '', description: '', pillar: 'General', goal_id: '' })
   const [filterPillar, setFilterPillar] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editState, setEditState] = useState<EditState>({ title: '', description: '', pillar: 'General' })
+  const [editState, setEditState] = useState<EditState>({ title: '', description: '', pillar: 'General', goal_id: '' })
 
   // Panel state
   const [panelTask, setPanelTask] = useState<Task | null>(null)
@@ -192,16 +202,22 @@ export default function TasksSection() {
     setTasks(Array.isArray(data) ? data : [])
   }, [])
 
-  useEffect(() => { loadTasks() }, [loadTasks])
+  const loadGoals = useCallback(async () => {
+    const res = await fetch('/api/mirror/pillar-goals')
+    const data = await res.json()
+    setGoals(Array.isArray(data) ? data : [])
+  }, [])
+
+  useEffect(() => { loadTasks(); loadGoals() }, [loadTasks, loadGoals])
 
   const createTask = async () => {
     if (!form.title.trim()) return
     await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, goal_id: form.goal_id || null }),
     })
-    setForm({ title: '', description: '', pillar: 'General' })
+    setForm({ title: '', description: '', pillar: 'General', goal_id: '' })
     setShowForm(false)
     loadTasks()
   }
@@ -223,7 +239,7 @@ export default function TasksSection() {
 
   const startEdit = (task: Task) => {
     setEditingId(task.id)
-    setEditState({ title: task.title, description: task.description ?? '', pillar: task.pillar })
+    setEditState({ title: task.title, description: task.description ?? '', pillar: task.pillar, goal_id: task.goal_id ?? '' })
   }
 
   const cancelEdit = () => { setEditingId(null) }
@@ -237,6 +253,7 @@ export default function TasksSection() {
         title: editState.title.trim(),
         description: editState.description.trim() || null,
         pillar: editState.pillar,
+        goal_id: editState.goal_id || null,
       }),
     })
     setEditingId(null)
@@ -358,6 +375,14 @@ export default function TasksSection() {
                   >
                     {PILLARS.map((p) => <option key={p}>{p}</option>)}
                   </select>
+                  <select
+                    value={form.goal_id}
+                    onChange={(e) => setForm({ ...form, goal_id: e.target.value })}
+                    className="bg-[#FAF9F6] border border-[#E3E0D8] text-[#1A1A1A] text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
+                  >
+                    <option value="">No goal</option>
+                    {goals.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
                   <button onClick={createTask} className="bg-[#D4622A] hover:bg-[#C05520] text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors">Save</button>
                   <button onClick={() => setShowForm(false)} className="text-[#9CA3AF] hover:text-[#6B6B6B] text-sm transition-colors">Cancel</button>
                 </div>
@@ -431,6 +456,14 @@ export default function TasksSection() {
                                     >
                                       {PILLARS.map((p) => <option key={p}>{p}</option>)}
                                     </select>
+                                    <select
+                                      value={editState.goal_id}
+                                      onChange={(e) => setEditState({ ...editState, goal_id: e.target.value })}
+                                      className="text-xs bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-2.5 py-1.5 text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
+                                    >
+                                      <option value="">No goal</option>
+                                      {goals.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                    </select>
                                     <div className="flex-1" />
                                     <button onClick={() => saveEdit(task.id)} className="text-xs bg-[#D4622A] hover:bg-[#C05520] text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Save</button>
                                     <button onClick={cancelEdit} className="text-xs text-[#9CA3AF] hover:text-[#6B6B6B] px-2 py-1.5 transition-colors">Cancel</button>
@@ -443,9 +476,14 @@ export default function TasksSection() {
                                       <span className={`text-sm ${task.status === 'done' ? 'line-through text-[#9CA3AF]' : 'text-[#1A1A1A]'}`}>
                                         {task.title}
                                       </span>
-                                      {(task.source === 'report' || task.source === 'chat' || task.source === 'meeting') && (
+                                      {SOURCE_LABELS[task.source] && (
                                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] border border-[#F5D3BC] px-2 py-0.5 rounded-full">
-                                          from {task.source}
+                                          from {SOURCE_LABELS[task.source]}
+                                        </span>
+                                      )}
+                                      {task.goal_id && (
+                                        <span className="text-xs bg-[#F5F3EE] text-[#6B6B6B] px-2 py-0.5 rounded-full">
+                                          🎯 {goals.find((g) => g.id === task.goal_id)?.name ?? 'Goal'}
                                         </span>
                                       )}
                                     </div>
