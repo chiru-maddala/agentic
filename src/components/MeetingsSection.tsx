@@ -62,6 +62,7 @@ function MeetingCard({
   tasks,
   extracting,
   addingKey,
+  addedKeys,
   onAddTask,
 }: {
   meeting: Meeting
@@ -69,11 +70,13 @@ function MeetingCard({
   tasks: TaskRef[]
   extracting: boolean
   addingKey: string | null
+  addedKeys: Set<string>
   onAddTask: (meeting: Meeting, suggestion: SuggestedTask, index: number) => void
 }) {
   const attendees = (meeting.meeting_people ?? []).map((mp) => mp.people).filter(Boolean)
   const meetingTasks = tasks.filter((t) => t.meeting_id === meeting.id)
-  const isAdded = (suggestion: SuggestedTask) => meetingTasks.some((t) => t.title === suggestion.title)
+  const isAdded = (suggestion: SuggestedTask, index: number) =>
+    addedKeys.has(`${meeting.id}-${index}`) || meetingTasks.some((t) => t.title === suggestion.title)
   const personName = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? null : null)
 
   return (
@@ -115,7 +118,7 @@ function MeetingCard({
           ) : (
             <div className="space-y-2">
               {meeting.suggested_tasks.map((s, i) => {
-                const added = isAdded(s)
+                const added = isAdded(s, i)
                 const adding = addingKey === `${meeting.id}-${i}`
                 const owner = personName(s.person_id)
                 return (
@@ -160,7 +163,9 @@ export default function MeetingsSection() {
   const [saving, setSaving] = useState(false)
   const [extractingId, setExtractingId] = useState<string | null>(null)
   const [addingKey, setAddingKey] = useState<string | null>(null)
+  const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
@@ -238,6 +243,7 @@ export default function MeetingsSection() {
   const addSuggestionToTask = async (meeting: Meeting, suggestion: SuggestedTask, index: number) => {
     const key = `${meeting.id}-${index}`
     setAddingKey(key)
+    setAddError(null)
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -252,8 +258,15 @@ export default function MeetingsSection() {
           person_id: suggestion.person_id ?? null,
         }),
       })
-      const created: TaskRef = await res.json()
-      if (res.ok) setTasks((prev) => [...prev, created])
+      const created: TaskRef & { error?: string } = await res.json()
+      if (res.ok) {
+        setTasks((prev) => [...prev, created])
+        setAddedKeys((prev) => new Set(prev).add(key))
+      } else {
+        setAddError(created.error ?? 'Failed to add task')
+      }
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : 'Failed to add task')
     } finally {
       setAddingKey(null)
     }
@@ -286,6 +299,12 @@ export default function MeetingsSection() {
             + Add Meeting
           </button>
         </div>
+
+        {addError && (
+          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            Couldn&apos;t add task: {addError}
+          </div>
+        )}
 
         {showForm && (
           <div className="bg-white border border-[#E3E0D8] rounded-xl p-4 space-y-3 shadow-sm">
@@ -370,7 +389,7 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {upcoming.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} onAddTask={addSuggestionToTask} />
+                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
                   ))}
                 </div>
               </div>
@@ -382,7 +401,7 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {past.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} onAddTask={addSuggestionToTask} />
+                    <MeetingCard key={m.id} meeting={m} people={people} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
                   ))}
                 </div>
               </div>
