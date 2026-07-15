@@ -38,7 +38,7 @@ async function generateActions(): Promise<Response> {
   const supabase = getSupabase()
 
   const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
-    supabase.from('mirror_goals').select('*'),
+    supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at'),
     supabase.from('mirror_signals').select('*').order('created_at', { ascending: false }).limit(60),
     supabase.from('tasks').select('title, status, pillar, created_at').order('created_at', { ascending: false }),
     supabase.from('reports').select('date, content').order('created_at', { ascending: false }).limit(3),
@@ -62,13 +62,13 @@ async function generateActions(): Promise<Response> {
     return { pillar: p, done, inProgress: pt.filter((t) => t.status === 'in-progress').length, todo: pt.filter((t) => t.status === 'todo').length, total, pct }
   })
 
-  const goalsMap = Object.fromEntries(goals.map((g) => [g.pillar, g]))
-  const vision = goalsMap['vision']?.goal_statement ?? ''
-
   const goalsContext = PILLARS.map((p) => {
-    const g = goalsMap[p]
-    if (!g) return `**${p}**: No goal defined.`
-    return `**${p}**\nGoal: ${g.goal_statement || '(not set)'}\nSuccess: ${g.success_criteria || '(not set)'}\nNorth Star: ${g.north_star_metric || '(not set)'}\nConstraints: ${g.constraints_context || '(not set)'}`
+    const pillarGoals = goals.filter((g) => g.pillar === p)
+    if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
+    const lines = pillarGoals
+      .map((g) => `- ${g.name} (target: ${g.target_number ?? '?'} by ${g.target_date ?? 'no date set'})`)
+      .join('\n')
+    return `**${p}**\n${lines}`
   }).join('\n\n')
 
   const formatSignal = (s: typeof signals[number]) =>
@@ -101,8 +101,6 @@ async function generateActions(): Promise<Response> {
   }).join('\n')
 
   const prompt = `You are a strategic coach for Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI.
-
-Vision: ${vision || '(not set)'}
 
 GOALS:
 ${goalsContext}

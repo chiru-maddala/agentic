@@ -20,7 +20,7 @@ async function generateAssessment(): Promise<Response> {
 
   // Fetch all context in parallel
   const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
-    supabase.from('mirror_goals').select('*'),
+    supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at'),
     supabase
       .from('mirror_signals')
       .select('*')
@@ -48,16 +48,16 @@ async function generateAssessment(): Promise<Response> {
   const reports = reportsRes.data ?? []
   const thoughts = thoughtsRes.data ?? []
 
-  // Goals context
-  const goalsContext =
-    goals.length > 0
-      ? goals
-          .map(
-            (g) =>
-              `**${g.pillar}**\nGoal: ${g.goal_statement || '(not set)'}\nSuccess looks like: ${g.success_criteria || '(not set)'}\nNorth Star Metric: ${g.north_star_metric || '(not set)'}\nConstraints & Context: ${g.constraints_context || '(not set)'}`
-          )
-          .join('\n\n')
-      : 'No goals defined yet.'
+  // Goals context — structured measurable goals per pillar (Name, Target Number, Target Date)
+  const GOAL_PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
+  const goalsContext = GOAL_PILLARS.map((p) => {
+    const pillarGoals = goals.filter((g) => g.pillar === p)
+    if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
+    const lines = pillarGoals
+      .map((g) => `- ${g.name} (target: ${g.target_number ?? '?'} by ${g.target_date ?? 'no date set'})`)
+      .join('\n')
+    return `**${p}**\n${lines}`
+  }).join('\n\n')
 
   // Signals context
   // World Signals = external intelligence (reports, research) — what's happening

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
 import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
 import type { Thought } from '@/app/api/mirror/thoughts/route'
@@ -10,13 +10,13 @@ type MirrorTab = 'intent' | 'coach' | 'signals' | 'thoughts'
 
 const THOUGHT_MAX_LENGTH = 280
 
-type Goal = {
+type PillarGoal = {
+  id: string
   pillar: string
-  goal_statement: string
-  success_criteria: string
-  north_star_metric: string
-  constraints_context: string
-  updated_at: string
+  name: string
+  target_number: number | null
+  target_date: string | null
+  created_at: string
 }
 
 type Signal = {
@@ -63,23 +63,29 @@ const SIGNAL_META: Record<string, { label: string; color: string; icon: string }
   research_done:    { label: 'Research',      color: 'bg-indigo-50 text-indigo-700',      icon: '🔍' },
 }
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
-
-// ─── Goal Card ────────────────────────────────────────────────────────────────
-function GoalCard({ pillar, goal, onChange, saving }: {
-  pillar: string; goal: Goal; onChange: (field: keyof Goal, value: string) => void; saving: boolean
+// ─── Pillar Goals Card ────────────────────────────────────────────────────────
+function PillarGoalsCard({ pillar, goals, onAdd, onDelete }: {
+  pillar: string
+  goals: PillarGoal[]
+  onAdd: (pillar: string, name: string, targetNumber: string, targetDate: string) => Promise<void>
+  onDelete: (id: string) => void
 }) {
   const colors = PILLAR_COLORS[pillar]
-  const daysSince = goal.updated_at
-    ? Math.floor((Date.now() - new Date(goal.updated_at).getTime()) / 86400000)
-    : null
+  const [name, setName] = useState('')
+  const [targetNumber, setTargetNumber] = useState('')
+  const [targetDate, setTargetDate] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const submit = async () => {
+    if (!name.trim()) return
+    setAdding(true)
+    try {
+      await onAdd(pillar, name.trim(), targetNumber, targetDate)
+      setName(''); setTargetNumber(''); setTargetDate('')
+    } finally {
+      setAdding(false)
+    }
+  }
 
   return (
     <div className={`bg-white border ${colors.border} rounded-xl overflow-hidden shadow-sm`}>
@@ -90,31 +96,56 @@ function GoalCard({ pillar, goal, onChange, saving }: {
           {pillar === 'Learning AI' ? 'Cypher · AutoCampus · RED AI' :
            pillar === 'Enterprise AI' ? 'Orchea.ai' : 'TerraNine · MATRIX'}
         </span>
-        {saving && <span className="text-xs text-[#9CA3AF]">Saving…</span>}
-        {!saving && daysSince !== null && (
-          <span className={`text-xs ${daysSince > 30 ? 'text-amber-500' : 'text-[#9CA3AF]'}`}>
-            {daysSince === 0 ? 'Updated today' : `Updated ${daysSince}d ago`}
-          </span>
-        )}
       </div>
-      <div className="divide-y divide-[#F5F3EE]">
-        {[
-          { key: 'goal_statement' as keyof Goal, label: 'Goal', placeholder: `What do you want to achieve with ${pillar}?`, rows: 3 },
-          { key: 'success_criteria' as keyof Goal, label: 'Success looks like', placeholder: 'Describe the future state concretely.', rows: 2 },
-          { key: 'north_star_metric' as keyof Goal, label: 'North Star Metric', placeholder: 'The one number that tells you it\'s working', rows: 1, mono: true },
-          { key: 'constraints_context' as keyof Goal, label: 'Constraints & Context', placeholder: 'Real-world limits, team size, key risks…', rows: 2 },
-        ].map(({ key, label, placeholder, rows, mono }) => (
-          <div key={key} className="px-5 py-3">
-            <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wider mb-1.5">{label}</p>
-            <textarea
-              value={(goal[key] as string) ?? ''}
-              onChange={(e) => onChange(key, e.target.value)}
-              placeholder={placeholder}
-              rows={rows}
-              className={`w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed ${mono ? 'font-mono' : ''}`}
-            />
-          </div>
-        ))}
+      {goals.length > 0 && (
+        <div className="divide-y divide-[#F5F3EE]">
+          {goals.map((g) => (
+            <div key={g.id} className="px-5 py-3 flex items-start gap-3 group">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#1A1A1A] leading-snug">{g.name}</p>
+                <p className="text-xs text-[#9CA3AF] mt-0.5">
+                  Target: {g.target_number ?? '?'}{g.target_date ? ` by ${new Date(`${g.target_date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => onDelete(g.id)}
+                className="opacity-0 group-hover:opacity-100 text-[#C4BFB5] hover:text-red-500 transition-opacity text-xs p-1"
+                title="Delete goal"
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="px-5 py-3 border-t border-[#F5F3EE] bg-[#FAF9F6] space-y-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+          placeholder="Goal name"
+          className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
+        />
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={targetNumber}
+            onChange={(e) => setTargetNumber(e.target.value)}
+            placeholder="Target number"
+            className="flex-1 text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
+          />
+          <input
+            type="date"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
+            className="flex-1 text-sm bg-white border border-[#E3E0D8] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#D4622A]"
+          />
+        </div>
+        <button
+          onClick={submit}
+          disabled={adding || !name.trim()}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[#D4622A] hover:bg-[#C05520] text-white disabled:opacity-50 transition-colors"
+        >
+          {adding ? 'Adding…' : '+ Add Goal'}
+        </button>
       </div>
     </div>
   )
@@ -359,9 +390,7 @@ function ThoughtCard({ thought, onDelete, onEdit, onHashtagClick }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MirrorSection() {
   const [tab, setTab] = useState<MirrorTab>('coach')
-  const [goals, setGoals] = useState<Record<string, Goal>>({})
-  const [pendingGoals, setPendingGoals] = useState<Record<string, Goal>>({})
-  const [savingPillars, setSavingPillars] = useState<Set<string>>(new Set())
+  const [pillarGoals, setPillarGoals] = useState<PillarGoal[]>([])
   const [signals, setSignals] = useState<Signal[]>([])
   const [signalFilter, setSignalFilter] = useState<'all' | SignalCategory>('all')
   const [checkin, setCheckin] = useState('')
@@ -379,19 +408,11 @@ export default function MirrorSection() {
   const [thoughtDraft, setThoughtDraft] = useState('')
   const [postingThought, setPostingThought] = useState(false)
   const [thoughtFilter, setThoughtFilter] = useState<string | null>(null)
-  const [vision, setVision] = useState('')
-  const debouncedVision = useDebounce(vision, 1500)
-  const visionSaved = useRef(false)
 
-  const loadGoals = useCallback(async () => {
-    const res = await fetch('/api/mirror/goals')
-    const data: Goal[] = await res.json()
-    if (!Array.isArray(data)) return
-    const map: Record<string, Goal> = {}
-    for (const g of data) map[g.pillar] = g
-    setGoals(map)
-    setPendingGoals(map)
-    if (map['vision']) setVision(map['vision'].goal_statement ?? '')
+  const loadPillarGoals = useCallback(async () => {
+    const res = await fetch('/api/mirror/pillar-goals')
+    const data = await res.json()
+    setPillarGoals(Array.isArray(data) ? data : [])
   }, [])
 
   const loadSignals = useCallback(async () => {
@@ -430,35 +451,28 @@ export default function MirrorSection() {
     } catch {}
   }, [])
 
-  useEffect(() => { loadGoals(); loadSignals(); loadThoughts(); loadCached() }, [loadGoals, loadSignals, loadThoughts, loadCached])
+  useEffect(() => { loadPillarGoals(); loadSignals(); loadThoughts(); loadCached() }, [loadPillarGoals, loadSignals, loadThoughts, loadCached])
 
-  useEffect(() => {
-    if (!visionSaved.current) { visionSaved.current = true; return }
-    fetch('/api/mirror/goals', {
-      method: 'PUT',
+  const addPillarGoal = async (pillar: string, name: string, targetNumber: string, targetDate: string) => {
+    const res = await fetch('/api/mirror/pillar-goals', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pillar: 'vision', goal_statement: debouncedVision, success_criteria: '', north_star_metric: '' }),
+      body: JSON.stringify({
+        pillar,
+        name,
+        target_number: targetNumber ? Number(targetNumber) : null,
+        target_date: targetDate || null,
+      }),
     })
-  }, [debouncedVision])
+    if (res.ok) {
+      const created: PillarGoal = await res.json()
+      setPillarGoals((prev) => [...prev, created])
+    }
+  }
 
-  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-  const handleGoalChange = (pillar: string, field: keyof Goal, value: string) => {
-    setPendingGoals((prev) => ({
-      ...prev,
-      [pillar]: { ...(prev[pillar] ?? goals[pillar] ?? { pillar, goal_statement: '', success_criteria: '', north_star_metric: '', updated_at: '' }), [field]: value },
-    }))
-    if (saveTimers.current[pillar]) clearTimeout(saveTimers.current[pillar])
-    saveTimers.current[pillar] = setTimeout(async () => {
-      setSavingPillars((s) => new Set(s).add(pillar))
-      const updated = { ...(pendingGoals[pillar] ?? goals[pillar] ?? {}), [field]: value, pillar }
-      await fetch('/api/mirror/goals', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      })
-      setGoals((prev) => ({ ...prev, [pillar]: { ...updated, updated_at: new Date().toISOString() } as Goal }))
-      setSavingPillars((s) => { const n = new Set(s); n.delete(pillar); return n })
-    }, 1500)
+  const deletePillarGoal = async (id: string) => {
+    setPillarGoals((prev) => prev.filter((g) => g.id !== id))
+    await fetch(`/api/mirror/pillar-goals/${id}`, { method: 'DELETE' })
   }
 
   const submitCheckin = async () => {
@@ -617,10 +631,7 @@ export default function MirrorSection() {
     })
   }
 
-  const goalsFilledCount = PILLARS.filter((p) => {
-    const g = pendingGoals[p] ?? goals[p]
-    return g?.goal_statement?.trim()
-  }).length
+  const goalsFilledCount = PILLARS.filter((p) => pillarGoals.some((g) => g.pillar === p)).length
 
   const isRunning = actionsLoading || assessing
   const hasData = actions !== null
@@ -751,17 +762,6 @@ export default function MirrorSection() {
                   )}
                 </div>
 
-                {/* Vision pulse (if set) */}
-                {vision && (
-                  <div className="bg-white border border-[#E3E0D8] rounded-xl px-5 py-4 flex items-start gap-3">
-                    <span className="text-lg flex-shrink-0 mt-0.5">🌟</span>
-                    <div>
-                      <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-1">Your Vision</p>
-                      <p className="text-sm text-[#374151] leading-relaxed">{vision}</p>
-                    </div>
-                  </div>
-                )}
-
                 {/* Pillar cards */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -837,36 +837,20 @@ export default function MirrorSection() {
         {tab === 'intent' && (
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">🌟</span>
-                <h2 className="text-sm font-semibold text-[#1A1A1A]">Overall Vision</h2>
-                <span className="text-xs text-[#9CA3AF]">Auto-saves</span>
-              </div>
-              <div className="bg-white border border-[#E3E0D8] rounded-xl px-5 py-4 shadow-sm">
-                <textarea
-                  value={vision}
-                  onChange={(e) => setVision(e.target.value)}
-                  placeholder="What is Intellina AI ultimately trying to achieve? Write the vision as if you're describing it 5 years from now."
-                  rows={4}
-                  className="w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed"
-                />
-              </div>
-            </div>
-            <div>
               <div className="flex items-center gap-2 mb-4">
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Goals</h2>
-                <span className="text-xs text-[#C4BFB5]">Auto-saves as you type</span>
+                <span className="text-xs text-[#C4BFB5]">{goalsFilledCount}/3 pillars have at least one goal</span>
               </div>
               <div className="space-y-5">
-                {PILLARS.map((pillar) => {
-                  const g = pendingGoals[pillar] ?? goals[pillar] ?? { pillar, goal_statement: '', success_criteria: '', north_star_metric: '', constraints_context: '', updated_at: '' }
-                  return (
-                    <GoalCard key={pillar} pillar={pillar} goal={g}
-                      onChange={(field, value) => handleGoalChange(pillar, field, value)}
-                      saving={savingPillars.has(pillar)}
-                    />
-                  )
-                })}
+                {PILLARS.map((pillar) => (
+                  <PillarGoalsCard
+                    key={pillar}
+                    pillar={pillar}
+                    goals={pillarGoals.filter((g) => g.pillar === pillar)}
+                    onAdd={addPillarGoal}
+                    onDelete={deletePillarGoal}
+                  />
+                ))}
               </div>
             </div>
             {goalsFilledCount === 3 && (
