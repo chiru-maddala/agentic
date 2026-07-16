@@ -13,6 +13,7 @@ export async function PATCH(
   if (body.name !== undefined) update.name = body.name
   if (body.target_number !== undefined) update.target_number = body.target_number
   if (body.target_date !== undefined) update.target_date = body.target_date
+  if (body.plan_document !== undefined) update.plan_document = body.plan_document
   if (body.current_value !== undefined) {
     update.current_value = body.current_value
     update.current_value_updated_at = new Date().toISOString()
