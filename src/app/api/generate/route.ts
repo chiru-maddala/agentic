@@ -3,6 +3,7 @@ import { getSupabase } from '@/lib/supabase'
 import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/lib/twitter'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 import { categoryForType } from '@/lib/signals'
+import { stripLoneSurrogates } from '@/lib/text'
 
 export const maxDuration = 300
 
@@ -166,9 +167,12 @@ export async function POST() {
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 8000,
-          system: buildSystemPrompt(),
+          system: stripLoneSurrogates(buildSystemPrompt()),
           messages: [
-            { role: 'user', content: buildUserPrompt(tweets, today, coveredTopics || undefined) },
+            {
+              role: 'user',
+              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined)),
+            },
           ],
         })
 

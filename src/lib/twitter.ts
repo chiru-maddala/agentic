@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TwitterApi } from 'twitter-api-v2'
+import { stripLoneSurrogates } from './text'
 
 // Always-on queries for breaking AI news — run regardless of pillar focus
 const BREAKING_NEWS_QUERIES = [
@@ -112,13 +113,14 @@ async function fetchTrackedHandleTweets(
         if (!isRelevantToPillars(tweet.text)) continue
         if (seenIds.has(tweet.id)) continue
 
+        const text = stripLoneSurrogates(tweet.text)
         const username = response.includes.author(tweet)?.username ?? cleanHandle
         const url = `https://x.com/${username}/status/${tweet.id}`
         const label = `tracked:${cleanHandle}`
-        results.push(`[${label}] (${url}) ${tweet.text}`)
+        results.push(`[${label}] (${url}) ${text}`)
 
         seenIds.add(tweet.id)
-        sources.push({ id: tweet.id, url, username, text: tweet.text, query: label })
+        sources.push({ id: tweet.id, url, username, text, query: label })
       }
     } catch {
       // Skip handles that fail (suspended, renamed, rate-limited) without breaking the whole fetch
@@ -159,12 +161,13 @@ export async function fetchRecentTweets(
       for (const tweet of response.data.data) {
         if (seenIds.has(tweet.id)) continue
 
+        const text = stripLoneSurrogates(tweet.text)
         const username = response.includes.author(tweet)?.username ?? 'i'
         const url = `https://x.com/${username}/status/${tweet.id}`
-        results.push(`[${query}] (${url}) ${tweet.text}`)
+        results.push(`[${query}] (${url}) ${text}`)
 
         seenIds.add(tweet.id)
-        sources.push({ id: tweet.id, url, username, text: tweet.text, query })
+        sources.push({ id: tweet.id, url, username, text, query })
       }
     }
   }
