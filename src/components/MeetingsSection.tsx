@@ -68,6 +68,13 @@ function MeetingCard({
   addingKey,
   addedKeys,
   onAddTask,
+  editing,
+  editState,
+  onEditStateChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
 }: {
   meeting: Meeting
   people: PersonRef[]
@@ -77,6 +84,13 @@ function MeetingCard({
   addingKey: string | null
   addedKeys: Set<string>
   onAddTask: (meeting: Meeting, suggestion: SuggestedTask, index: number) => void
+  editing: boolean
+  editState: FormState
+  onEditStateChange: (state: FormState) => void
+  onStartEdit: (meeting: Meeting) => void
+  onCancelEdit: () => void
+  onSaveEdit: (id: string) => void
+  onDelete: (id: string) => void
 }) {
   const attendees = (meeting.meeting_people ?? []).map((mp) => mp.people).filter(Boolean)
   const linkedGoal = meeting.goal_id ? goals.find((g) => g.id === meeting.goal_id) : null
@@ -85,8 +99,97 @@ function MeetingCard({
     addedKeys.has(`${meeting.id}-${index}`) || meetingTasks.some((t) => t.title === suggestion.title)
   const personName = (id: string | null) => (id ? people.find((p) => p.id === id)?.name ?? null : null)
 
+  const toggleEditPerson = (id: string) => {
+    onEditStateChange({
+      ...editState,
+      person_ids: editState.person_ids.includes(id)
+        ? editState.person_ids.filter((p) => p !== id)
+        : [...editState.person_ids, id],
+    })
+  }
+
+  if (editing) {
+    return (
+      <div className="bg-white border border-[#D4622A]/40 rounded-xl p-4 space-y-3 shadow-sm">
+        <input
+          autoFocus
+          value={editState.title}
+          onChange={(e) => onEditStateChange({ ...editState, title: e.target.value })}
+          placeholder="Meeting title"
+          className="w-full text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30 focus:border-[#D4622A]"
+        />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={editState.meeting_date}
+            onChange={(e) => onEditStateChange({ ...editState, meeting_date: e.target.value })}
+            className="text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 focus:outline-none"
+          />
+          <select
+            value={editState.pillar}
+            onChange={(e) => onEditStateChange({ ...editState, pillar: e.target.value, goal_id: '' })}
+            className="text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2"
+          >
+            <option value="">No pillar</option>
+            {PILLARS.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select
+            value={editState.goal_id}
+            onChange={(e) => onEditStateChange({ ...editState, goal_id: e.target.value })}
+            disabled={!editState.pillar}
+            className="text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 disabled:opacity-50"
+          >
+            <option value="">No goal</option>
+            {goals.filter((g) => g.pillar === editState.pillar).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wider mb-1.5">Attendees</p>
+          {people.length === 0 ? (
+            <p className="text-xs text-[#9CA3AF]">No people yet — add them in Settings → People first.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {people.map((p) => {
+                const selected = editState.person_ids.includes(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => toggleEditPerson(p.id)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      selected ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]' : 'bg-[#FAF9F6] text-[#6B6B6B] border-[#E3E0D8] hover:border-[#D4622A]'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <textarea
+          value={editState.notes}
+          onChange={(e) => onEditStateChange({ ...editState, notes: e.target.value })}
+          placeholder="Meeting notes — key details, decisions, and anything that implies a follow-up…"
+          rows={4}
+          className="w-full text-sm bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-2 resize-none focus:outline-none"
+        />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSaveEdit(meeting.id)}
+            disabled={!editState.title.trim()}
+            className="text-xs font-medium px-4 py-2 rounded-lg bg-[#D4622A] hover:bg-[#C05520] text-white disabled:opacity-50 transition-colors"
+          >
+            Save
+          </button>
+          <button onClick={onCancelEdit} className="text-xs text-[#9CA3AF] hover:text-[#6B6B6B] px-2 py-2 transition-colors">Cancel</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm">
+    <div className="bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm group">
       <div className="flex items-start gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -115,6 +218,23 @@ function MeetingCard({
           {meeting.notes && (
             <p className="text-xs text-[#6B6B6B] mt-2 leading-relaxed whitespace-pre-wrap">{meeting.notes}</p>
           )}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => onStartEdit(meeting)}
+            className="opacity-0 group-hover:opacity-100 text-[#9CA3AF] hover:text-[#1A1A1A] transition-all p-1 rounded"
+            title="Edit"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button
+            onClick={() => onDelete(meeting.id)}
+            className="opacity-0 group-hover:opacity-100 text-[#C4BFB5] hover:text-red-500 transition-all text-xs p-1 rounded"
+            title="Delete"
+          >✕</button>
         </div>
       </div>
 
@@ -178,6 +298,8 @@ export default function MeetingsSection() {
   const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [addError, setAddError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editState, setEditState] = useState<FormState>(emptyForm())
 
   const loadAll = useCallback(async () => {
     try {
@@ -256,6 +378,53 @@ export default function MeetingsSection() {
     }
   }
 
+  const startEdit = (meeting: Meeting) => {
+    setEditingId(meeting.id)
+    setEditState({
+      title: meeting.title,
+      meeting_date: meeting.meeting_date,
+      pillar: meeting.pillar ?? '',
+      notes: meeting.notes ?? '',
+      person_ids: (meeting.meeting_people ?? []).map((mp) => mp.people?.id).filter((id): id is string => !!id),
+      goal_id: meeting.goal_id ?? '',
+    })
+  }
+
+  const cancelEdit = () => setEditingId(null)
+
+  const saveEdit = async (id: string) => {
+    if (!editState.title.trim() || !editState.meeting_date) return
+    setError(null)
+    try {
+      const res = await fetch(`/api/meetings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editState.title.trim(),
+          meeting_date: editState.meeting_date,
+          pillar: editState.pillar || null,
+          notes: editState.notes.trim() || null,
+          person_ids: editState.person_ids,
+          goal_id: editState.goal_id || null,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to save meeting')
+      }
+      setEditingId(null)
+      await loadAll()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save meeting')
+    }
+  }
+
+  const deleteMeeting = async (id: string) => {
+    if (editingId === id) setEditingId(null)
+    await fetch(`/api/meetings/${id}`, { method: 'DELETE' })
+    setMeetings((prev) => prev.filter((m) => m.id !== id))
+  }
+
   const addSuggestionToTask = async (meeting: Meeting, suggestion: SuggestedTask, index: number) => {
     const key = `${meeting.id}-${index}`
     setAddingKey(key)
@@ -321,6 +490,10 @@ export default function MeetingsSection() {
           <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             Couldn&apos;t add task: {addError}
           </div>
+        )}
+
+        {error && !showForm && (
+          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
         )}
 
         {showForm && (
@@ -415,7 +588,24 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {upcoming.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} goals={goals} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
+                    <MeetingCard
+                      key={m.id}
+                      meeting={m}
+                      people={people}
+                      goals={goals}
+                      tasks={tasks}
+                      extracting={extractingId === m.id}
+                      addingKey={addingKey}
+                      addedKeys={addedKeys}
+                      onAddTask={addSuggestionToTask}
+                      editing={editingId === m.id}
+                      editState={editState}
+                      onEditStateChange={setEditState}
+                      onStartEdit={startEdit}
+                      onCancelEdit={cancelEdit}
+                      onSaveEdit={saveEdit}
+                      onDelete={deleteMeeting}
+                    />
                   ))}
                 </div>
               </div>
@@ -427,7 +617,24 @@ export default function MeetingsSection() {
                 </h2>
                 <div className="space-y-3">
                   {past.map((m) => (
-                    <MeetingCard key={m.id} meeting={m} people={people} goals={goals} tasks={tasks} extracting={extractingId === m.id} addingKey={addingKey} addedKeys={addedKeys} onAddTask={addSuggestionToTask} />
+                    <MeetingCard
+                      key={m.id}
+                      meeting={m}
+                      people={people}
+                      goals={goals}
+                      tasks={tasks}
+                      extracting={extractingId === m.id}
+                      addingKey={addingKey}
+                      addedKeys={addedKeys}
+                      onAddTask={addSuggestionToTask}
+                      editing={editingId === m.id}
+                      editState={editState}
+                      onEditStateChange={setEditState}
+                      onStartEdit={startEdit}
+                      onCancelEdit={cancelEdit}
+                      onSaveEdit={saveEdit}
+                      onDelete={deleteMeeting}
+                    />
                   ))}
                 </div>
               </div>
