@@ -4,8 +4,20 @@ import { buildChatSystemPrompt } from '@/lib/prompt'
 import { fetchRecentTweets } from '@/lib/twitter'
 import { getRelevantContext } from '@/lib/context'
 import { categoryForType } from '@/lib/signals'
+import { computeGoalPacing } from '@/lib/goals'
 
 export const maxDuration = 300
+
+const GOAL_PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
+
+const PACING_LABEL: Record<string, string> = {
+  'no-target': '',
+  'no-progress': ' — no progress logged yet',
+  ahead: ' — AHEAD OF PACE',
+  'on-pace': ' — on pace',
+  behind: ' — BEHIND PACE',
+  overdue: ' — OVERDUE',
+}
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -46,6 +58,20 @@ const TOOLS: Anthropic.Tool[] = [
     name: 'list_notes',
     description: 'Retrieve all notes from the Notes app.',
     input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'list_goals',
+    description: 'Retrieve the measurable pillar goals from the Goals hub, including progress toward target, target date, and pacing status (ahead/on-pace/behind/overdue). Use this when the user asks about goals, progress, targets, or how they are pacing.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        pillar: {
+          type: 'string',
+          enum: GOAL_PILLARS,
+          description: 'Optional — limit to a single pillar',
+        },
+      },
+    },
   },
   {
     name: 'list_thoughts',
@@ -134,6 +160,22 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     if (error) return `Error fetching notes: ${error.message}`
     if (!data || data.length === 0) return 'No notes found.'
     return data.map((n) => `- ${n.title}`).join('\n')
+  }
+
+  if (name === 'list_goals') {
+    let query = supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at')
+    const pillar = input.pillar as string | undefined
+    if (pillar) query = query.eq('pillar', pillar)
+
+    const { data, error } = await query
+    if (error) return `Error fetching goals: ${error.message}`
+    if (!data || data.length === 0) return 'No goals found.'
+    return data
+      .map((g) => {
+        const pacing = computeGoalPacing(g)
+        return `- [${g.pillar}] ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+      })
+      .join('\n')
   }
 
   if (name === 'list_thoughts') {
@@ -256,6 +298,12 @@ export async function POST(
     .order('created_at', { ascending: false })
     .limit(3)
 
+  const { data: goals } = await supabase
+    .from('mirror_pillar_goals')
+    .select('pillar, name, target_number, target_date, current_value, created_at')
+    .order('pillar')
+    .order('created_at')
+
   // Only keep the last 20 messages to avoid unbounded context growth
   const { data: history } = await supabase
     .from('chat_messages')
@@ -279,14 +327,33 @@ export async function POST(
           .join('\n')
       : ''
 
+  // Structured measurable goals per pillar, with pacing vs. target — same shape as
+  // the Strategic Mirror Coach assessment, so Chat can reason about progress consistently
+  const goalsContext =
+    goals && goals.length > 0
+      ? '\n\n### Current Pillar Goals:\n' +
+        GOAL_PILLARS.map((p) => {
+          const pillarGoals = goals.filter((g) => g.pillar === p)
+          if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
+          const lines = pillarGoals
+            .map((g) => {
+              const pacing = computeGoalPacing(g)
+              return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+            })
+            .join('\n')
+          return `**${p}**\n${lines}`
+        }).join('\n\n')
+      : ''
+
   // Retrieve only the context-document chunks relevant to this message
   const docsContext = await getRelevantContext(supabase, message)
 
   const systemPrompt =
     buildChatSystemPrompt() +
-    '\n\nYou have access to tools to manage Tasks and Notes. Use them immediately when asked — do not describe what you are about to do, just do it.' +
+    '\n\nYou have access to tools to manage Tasks, Notes, and Goals. Use them immediately when asked — do not describe what you are about to do, just do it.' +
     (pageContext ? `\n\n**Current page context:** The user is currently viewing the ${pageContext}` : '') +
     reportsContext +
+    goalsContext +
     (docsContext ? `\n\n### Uploaded Context Documents\nThe user has uploaded the following reference documents. Treat their contents as authoritative context and answer questions about them directly.\n\n${docsContext}` : '')
 
   // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT).
