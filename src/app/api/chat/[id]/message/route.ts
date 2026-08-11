@@ -74,6 +74,20 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'list_meetings',
+    description: 'Retrieve logged meetings, including date, pillar, attendees, and notes. Use this when the user asks about meetings, who they met with, or what was discussed.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        pillar: {
+          type: 'string',
+          enum: GOAL_PILLARS,
+          description: 'Optional — limit to a single pillar',
+        },
+      },
+    },
+  },
+  {
     name: 'list_thoughts',
     description: 'Retrieve the user\'s saved Thoughts — spontaneous hashtag-tagged notes from the Strategic Mirror. Use this when the user asks to analyze, review, summarize, find patterns in, or discuss their thoughts.',
     input_schema: {
@@ -174,6 +188,32 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
       .map((g) => {
         const pacing = computeGoalPacing(g)
         return `- [${g.pillar}] ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+      })
+      .join('\n')
+  }
+
+  if (name === 'list_meetings') {
+    let query = supabase
+      .from('meetings')
+      .select('title, meeting_date, pillar, notes, meeting_people(people(name))')
+      .order('meeting_date', { ascending: false })
+    const pillar = input.pillar as string | undefined
+    if (pillar) query = query.eq('pillar', pillar)
+
+    const { data, error } = await query
+    if (error) return `Error fetching meetings: ${error.message}`
+    if (!data || data.length === 0) return 'No meetings found.'
+    return data
+      .map((m) => {
+        const meetingPeople = (m.meeting_people ?? []) as unknown as { people: { name: string } | null }[]
+        const attendees = meetingPeople
+          .map((mp) => mp.people?.name)
+          .filter(Boolean)
+          .join(', ')
+        const pillarTag = m.pillar ? ` [${m.pillar}]` : ''
+        const attendeeTag = attendees ? ` — with ${attendees}` : ''
+        const notes = m.notes ? `: ${m.notes}` : ''
+        return `- ${m.meeting_date} ${m.title}${pillarTag}${attendeeTag}${notes}`
       })
       .join('\n')
   }
@@ -304,6 +344,12 @@ export async function POST(
     .order('pillar')
     .order('created_at')
 
+  const { data: meetings } = await supabase
+    .from('meetings')
+    .select('title, meeting_date, pillar, notes, meeting_people(people(name))')
+    .order('meeting_date', { ascending: false })
+    .limit(5)
+
   // Only keep the last 20 messages to avoid unbounded context growth
   const { data: history } = await supabase
     .from('chat_messages')
@@ -345,15 +391,35 @@ export async function POST(
         }).join('\n\n')
       : ''
 
+  // Most recent logged meetings, with attendees — same shape as the Meetings hub,
+  // so Chat can answer "who did I meet with" / "what came out of X" without a tool round-trip
+  const meetingsContext =
+    meetings && meetings.length > 0
+      ? '\n\n### Recent Meetings:\n' +
+        meetings
+          .map((m) => {
+            const meetingPeople = (m.meeting_people ?? []) as unknown as { people: { name: string } | null }[]
+            const attendees = meetingPeople
+              .map((mp) => mp.people?.name)
+              .filter(Boolean)
+              .join(', ')
+            const pillarTag = m.pillar ? ` [${m.pillar}]` : ''
+            const attendeeTag = attendees ? ` — with ${attendees}` : ''
+            return `- ${m.meeting_date} ${m.title}${pillarTag}${attendeeTag}`
+          })
+          .join('\n')
+      : ''
+
   // Retrieve only the context-document chunks relevant to this message
   const docsContext = await getRelevantContext(supabase, message)
 
   const systemPrompt =
     buildChatSystemPrompt() +
-    '\n\nYou have access to tools to manage Tasks, Notes, and Goals. Use them immediately when asked — do not describe what you are about to do, just do it.' +
+    '\n\nYou have access to tools to manage Tasks, Notes, Goals, and Meetings. Use them immediately when asked — do not describe what you are about to do, just do it.' +
     (pageContext ? `\n\n**Current page context:** The user is currently viewing the ${pageContext}` : '') +
     reportsContext +
     goalsContext +
+    meetingsContext +
     (docsContext ? `\n\n### Uploaded Context Documents\nThe user has uploaded the following reference documents. Treat their contents as authoritative context and answer questions about them directly.\n\n${docsContext}` : '')
 
   // Reverse so messages are in chronological order (we fetched newest-first for the LIMIT).
@@ -441,9 +507,11 @@ export async function POST(
                 block.input as Record<string, unknown>
               )
               // Truncate tool results fed back into context to avoid bloating loopMessages.
-              // list_thoughts is exempt from the tight cap — its purpose is bulk analysis,
-              // so truncating at 500 chars would only ever surface a handful of thoughts.
-              const resultCap = block.name === 'list_thoughts' ? 6000 : 500
+              // list_thoughts and list_meetings are exempt from the tight cap — both embed
+              // full free-text content (thoughts / meeting notes) per row, so truncating at
+              // 500 chars would cut notes off mid-sentence after just one or two entries.
+              const LOOSE_CAP_TOOLS = new Set(['list_thoughts', 'list_meetings'])
+              const resultCap = LOOSE_CAP_TOOLS.has(block.name) ? 6000 : 500
               const truncated = result.length > resultCap
                 ? result.slice(0, resultCap) + '… [truncated for context]'
                 : result
