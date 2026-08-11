@@ -507,9 +507,11 @@ export async function POST(
                 block.input as Record<string, unknown>
               )
               // Truncate tool results fed back into context to avoid bloating loopMessages.
-              // list_thoughts is exempt from the tight cap — its purpose is bulk analysis,
-              // so truncating at 500 chars would only ever surface a handful of thoughts.
-              const resultCap = block.name === 'list_thoughts' ? 6000 : 500
+              // list_thoughts and list_meetings are exempt from the tight cap — both embed
+              // full free-text content (thoughts / meeting notes) per row, so truncating at
+              // 500 chars would cut notes off mid-sentence after just one or two entries.
+              const LOOSE_CAP_TOOLS = new Set(['list_thoughts', 'list_meetings'])
+              const resultCap = LOOSE_CAP_TOOLS.has(block.name) ? 6000 : 500
               const truncated = result.length > resultCap
                 ? result.slice(0, resultCap) + '… [truncated for context]'
                 : result
