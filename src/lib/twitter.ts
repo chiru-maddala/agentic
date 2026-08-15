@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TwitterApi } from 'twitter-api-v2'
 import { stripLoneSurrogates } from './text'
+import type { Vertical } from './prompt'
 
 // Always-on queries for breaking AI news — run regardless of pillar focus
 const BREAKING_NEWS_QUERIES = [
@@ -19,7 +20,30 @@ const FALLBACK_QUERIES = [
   'edge AI inference',
 ]
 
-export async function generateSearchQueries(coveredTopics: string): Promise<string[]> {
+const FALLBACK_QUERIES_BY_VERTICAL: Record<Exclude<Vertical, 'All'>, string[]> = {
+  'Learning AI': ['AI education K-12', 'higher education AI knowledge graph', 'AI tutor personalized learning'],
+  'Enterprise AI': ['agentic AI enterprise', 'AI orchestration multi-agent', 'Databricks AI'],
+  'AI Infrastructure': ['AI infrastructure GPU compute', 'edge AI inference', 'AI data center power cooling'],
+}
+
+const PILLAR_DESCRIPTIONS: Record<Exclude<Vertical, 'All'>, string> = {
+  'Learning AI': 'K-12 AI tools, higher education AI, professional AI courses, knowledge graphs',
+  'Enterprise AI': 'agentic orchestration, multi-agent systems, Databricks, no-code AI platforms',
+  'AI Infrastructure': 'GPU/compute, edge AI, space computing, inference optimization',
+}
+
+export async function generateSearchQueries(coveredTopics: string, vertical: Vertical = 'All'): Promise<string[]> {
+  const scopeDescription = vertical === 'All'
+    ? `The company (Intellina AI) focuses on three pillars:
+- Learning AI: ${PILLAR_DESCRIPTIONS['Learning AI']}
+- Enterprise AI: ${PILLAR_DESCRIPTIONS['Enterprise AI']}
+- AI Infrastructure: ${PILLAR_DESCRIPTIONS['AI Infrastructure']}`
+    : `The company (Intellina AI) has a "${vertical}" pillar: ${PILLAR_DESCRIPTIONS[vertical]}`
+
+  const scopeInstruction = vertical === 'All'
+    ? 'Generate exactly 5 fresh, specific Twitter search queries scoped to the three pillars above that will surface NEW signals not covered above.'
+    : `Generate exactly 5 fresh, specific Twitter search queries scoped ONLY to the "${vertical}" pillar above that will surface NEW signals not covered above.`
+
   const client = new Anthropic()
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -29,15 +53,12 @@ export async function generateSearchQueries(coveredTopics: string): Promise<stri
         role: 'user',
         content: `You generate Twitter/X search queries for an AI company intelligence feed.
 
-The company (Intellina AI) focuses on three pillars:
-- Learning AI: K-12 AI tools, higher education AI, professional AI courses, knowledge graphs
-- Enterprise AI: agentic orchestration, multi-agent systems, Databricks, no-code AI platforms
-- AI Infrastructure: GPU/compute, edge AI, space computing, inference optimization
+${scopeDescription}
 
 Recently covered topics (avoid repeating these angles):
 ${coveredTopics}
 
-Generate exactly 5 fresh, specific Twitter search queries scoped to the three pillars above that will surface NEW signals not covered above.
+${scopeInstruction}
 Output only the queries, one per line, no numbering or punctuation prefix.`,
       },
     ],
@@ -50,8 +71,10 @@ Output only the queries, one per line, no numbering or punctuation prefix.`,
     .filter((q) => q.length > 0)
     .slice(0, 5)
 
+  const fallback = vertical === 'All' ? FALLBACK_QUERIES.slice(2) : FALLBACK_QUERIES_BY_VERTICAL[vertical]
+
   // Always prepend breaking-news queries so trending AI stories are never missed
-  const queries = [...BREAKING_NEWS_QUERIES, ...(pillarQueries.length >= 3 ? pillarQueries : FALLBACK_QUERIES.slice(2))]
+  const queries = [...BREAKING_NEWS_QUERIES, ...(pillarQueries.length >= 3 ? pillarQueries : fallback)]
   return queries
 }
 
