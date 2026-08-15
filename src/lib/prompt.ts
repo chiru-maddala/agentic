@@ -1,3 +1,25 @@
+export type Vertical = 'Learning AI' | 'Enterprise AI' | 'AI Infrastructure' | 'All'
+
+export const VERTICALS: Vertical[] = ['All', 'Learning AI', 'Enterprise AI', 'AI Infrastructure']
+
+const PILLAR_SECTIONS: Record<Exclude<Vertical, 'All'>, { emoji: string; title: string; focus: string }> = {
+  'Learning AI': {
+    emoji: '📚',
+    title: 'Learning AI Pillar',
+    focus: 'Insights on K-12, Higher Education, Professional upskilling. Focus on personalized learning, knowledge graphs, world signals, AI tutors, curriculum adaptation, talent pipelines.',
+  },
+  'Enterprise AI': {
+    emoji: '🤖',
+    title: 'Enterprise AI Pillar (Orchea.ai)',
+    focus: 'Agentic systems, orchestration frameworks, multi-agent tools, no-code/low-code agents, Databricks ecosystem, cost-efficiency, guardrails.',
+  },
+  'AI Infrastructure': {
+    emoji: '☁️',
+    title: 'AI Infrastructure Pillar',
+    focus: 'Compute economics, CPU vs GPU shifts, space/edge/distributed AI, power & cooling, inference optimization.',
+  },
+}
+
 function buildAgentContext(): string {
   return `You are Intellina Intelligence Agent (IntelliRadar), an expert-level autonomous AI research assistant working directly for the Co-founder & CEO of Intellina AI, Inc.
 
@@ -24,37 +46,11 @@ Intellina AI has three core pillars:
 - Maintain professional but sharp tone.`
 }
 
-// Used for report generation — includes the structured output format.
-export function buildSystemPrompt(): string {
-  return buildAgentContext() + `
-
-### Output Format
-Always respond in clean, well-formatted Markdown with proper headings and emojis as shown below.
-
-Begin every response with:
-**✅ Intellina AI Daily Research Report**
-**Date:** [Current Date]
-
-Then produce a structured Daily Intelligence Report with these sections:
-
-1. **📚 Learning AI Pillar** — Insights on K-12, Higher Education, Professional upskilling. Focus on personalized learning, knowledge graphs, world signals, AI tutors, curriculum adaptation, talent pipelines.
-
-2. **🤖 Enterprise AI Pillar (Orchea.ai)** — Agentic systems, orchestration frameworks, multi-agent tools, no-code/low-code agents, Databricks ecosystem, cost-efficiency, guardrails.
-
-3. **☁️ AI Infrastructure Pillar** — Compute economics, CPU vs GPU shifts, space/edge/distributed AI, power & cooling, inference optimization.
-
-4. **🚀 New Models, Agentic Systems, Frameworks & Breakthroughs** — Most important new releases, papers, tools, or paradigm shifts.
-
-5. **Daily Learning Plan for CEO** — 30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to Intellina products.
-
-6. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy.
-
-The report ends after section 6. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
-
-### Inline Source Citations (critical — apply in every section above)
+function citationRules(): string {
+  return `### Inline Source Citations (critical — apply in every section above)
 Tweets you're given are each prefixed with their source URL in parentheses, e.g. \`(https://x.com/user/status/123) tweet text\`.
 
-When a bullet or sentence in sections 1–4 is based on a specific tweet, embed the citation as a markdown link directly inside that bullet, right next to the claim it supports — not after "Why it matters" or "Recommended Action," and never collected into a separate list at the end. Use the exact URL provided; never invent, guess, or alter one. Skip citations for general knowledge or synthesis not tied to a specific tweet.
+When a bullet or sentence in the pillar/breakthrough sections is based on a specific tweet, embed the citation as a markdown link directly inside that bullet, right next to the claim it supports — not after "Why it matters" or "Recommended Action," and never collected into a separate list at the end. Use the exact URL provided; never invent, guess, or alter one. Skip citations for general knowledge or synthesis not tied to a specific tweet.
 
 Correct — citation lives inside the claim itself:
 - **OpenAI ships GPT-6 with native tool orchestration** — early benchmarks show 40% faster agent completion times ([source](https://x.com/openai/status/123)).
@@ -68,7 +64,69 @@ Wrong — citation detached from the claim or dumped at the end:
 ## Sources
 - [source](https://x.com/openai/status/123)
 
-Every citation must land inline, in the same bullet as the claim, throughout sections 1–4 — not grouped anywhere.`
+Every citation must land inline, in the same bullet as the claim, throughout those sections — not grouped anywhere.`
+}
+
+// Used for report generation — includes the structured output format.
+// `vertical` narrows the report to a single Intellina pillar; 'All' (the
+// default) produces the original combined three-pillar report.
+export function buildSystemPrompt(vertical: Vertical = 'All'): string {
+  if (vertical === 'All') {
+    return buildAgentContext() + `
+
+### Output Format
+Always respond in clean, well-formatted Markdown with proper headings and emojis as shown below.
+
+Begin every response with:
+**✅ Intellina AI Daily Research Report**
+**Date:** [Current Date]
+
+Then produce a structured Daily Intelligence Report with these sections:
+
+1. **📚 Learning AI Pillar** — ${PILLAR_SECTIONS['Learning AI'].focus}
+
+2. **🤖 Enterprise AI Pillar (Orchea.ai)** — ${PILLAR_SECTIONS['Enterprise AI'].focus}
+
+3. **☁️ AI Infrastructure Pillar** — ${PILLAR_SECTIONS['AI Infrastructure'].focus}
+
+4. **🚀 New Models, Agentic Systems, Frameworks & Breakthroughs** — Most important new releases, papers, tools, or paradigm shifts.
+
+5. **Daily Learning Plan for CEO** — 30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to Intellina products.
+
+6. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy.
+
+The report ends after section 6. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
+
+${citationRules()}`
+  }
+
+  const { emoji, title, focus } = PILLAR_SECTIONS[vertical]
+
+  return buildAgentContext() + `
+
+### Report Focus
+This report covers ONLY the **${vertical}** pillar. Do not include analysis, headlines, or recommendations about Intellina's other two pillars — stay entirely within ${vertical} unless a brief cross-pillar comparison is essential to explain a ${vertical} insight.
+
+### Output Format
+Always respond in clean, well-formatted Markdown with proper headings and emojis as shown below.
+
+Begin every response with:
+**✅ Intellina AI Daily Research Report — ${vertical}**
+**Date:** [Current Date]
+
+Then produce a structured Daily Intelligence Report with these sections:
+
+1. **${emoji} ${title}** — ${focus}
+
+2. **🚀 New Models, Agentic Systems, Frameworks & Breakthroughs (${vertical})** — Most important new releases, papers, tools, or paradigm shifts relevant specifically to ${vertical}.
+
+3. **Daily Learning Plan for CEO** — 30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to ${vertical} and its Intellina products.
+
+4. **Priority Actions & Opportunities** — Concrete next steps for product, content, or strategy within ${vertical}.
+
+The report ends after section 4. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
+
+${citationRules()}`
 }
 
 // Used for the conversational chat — no report format, no confirmation loops.
@@ -82,18 +140,26 @@ export function buildChatSystemPrompt(): string {
 - Never misinterpret short replies ("Right", "Yes", "Go ahead", "Do it") as incomplete — treat them as confirmations or acknowledgements.`
 }
 
-export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string): string {
+export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string, vertical: Vertical = 'All'): string {
   const coverageSection = coveredTopics
     ? `\n--- TOPICS COVERED IN RECENT REPORTS (avoid repeating these angles) ---\n${coveredTopics}\n--- END RECENT COVERAGE ---\n`
     : ''
 
+  const scopeLine = vertical === 'All'
+    ? `generate the full Intellina AI Daily Research Report`
+    : `generate the Intellina AI Daily Research Report focused exclusively on the **${vertical}** pillar`
+
+  const focusLine = vertical === 'All'
+    ? `Synthesize these signals with your broader knowledge. Prioritize what's most relevant to Intellina's three pillars. Focus on insights, angles, and developments NOT already covered in recent reports.`
+    : `Synthesize these signals with your broader knowledge. Focus EXCLUSIVELY on what's most relevant to Intellina's **${vertical}** pillar — ignore signals that only matter to the other two pillars. Focus on insights, angles, and developments NOT already covered in recent reports.`
+
   return `Today is ${date}.
 ${coverageSection}
-Based on the following recent tweets and your knowledge of the AI landscape, generate the full Intellina AI Daily Research Report:
+Based on the following recent tweets and your knowledge of the AI landscape, ${scopeLine}:
 
 --- RECENT TWEETS (each prefixed with its source URL) ---
 ${tweets}
 --- END TWEETS ---
 
-Synthesize these signals with your broader knowledge. Prioritize what's most relevant to Intellina's three pillars. Focus on insights, angles, and developments NOT already covered in recent reports.`
+${focusLine}`
 }

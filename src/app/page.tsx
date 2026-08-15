@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { TwitterSource } from '@/components/ReportDisplay'
+import { VERTICALS, type Vertical } from '@/lib/prompt'
 
 const ReportHistory = dynamic(() => import('@/components/ReportHistory'), { ssr: false })
 const ReportDisplay = dynamic(() => import('@/components/ReportDisplay'), { ssr: false })
@@ -125,6 +126,14 @@ const TABS: { id: Tab; label: string }[] = [
 
 const VALID_TABS = new Set<Tab | 'settings'>([...TABS.map((t) => t.id), 'settings'])
 
+const VERTICAL_LABELS: Record<Vertical, string> = {
+  'All': 'All Pillars (Combined)',
+  'Learning AI': 'Learning AI',
+  'Enterprise AI': 'Enterprise AI',
+  'AI Infrastructure': 'AI Infrastructure',
+}
+type HistoryFilter = Vertical | 'All Verticals'
+
 // useLayoutEffect on the client (runs before paint), useEffect on the server
 // (effects don't run during SSR anyway) to silence the SSR warning.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -137,6 +146,9 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
+  const [selectedVertical, setSelectedVertical] = useState<Vertical>('All')
+  const [genVertical, setGenVertical] = useState<Vertical>('All')
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('All Verticals')
   const [content, setContent] = useState<string>('')
   const [twitterSources, setTwitterSources] = useState<TwitterSource[]>([])
   const [streaming, setStreaming] = useState(false)
@@ -200,6 +212,7 @@ export default function Home() {
     const data = await res.json()
     setContent(data.content ?? '')
     setTwitterSources(data.sources ?? [])
+    setSelectedVertical((data.vertical as Vertical) ?? 'All')
   }, [])
 
   const generateReport = async () => {
@@ -208,9 +221,14 @@ export default function Home() {
     setSelectedDate(null)
     setContent('')
     setTwitterSources([])
+    setSelectedVertical(genVertical)
     setStreaming(true)
 
-    const res = await fetch('/api/generate', { method: 'POST' })
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vertical: genVertical }),
+    })
     if (!res.body) return
 
     const reader = res.body.getReader()
@@ -226,7 +244,9 @@ export default function Home() {
     setGenerating(false)
     setHistoryKey((k) => k + 1)
 
-    const listRes = await fetch('/api/reports')
+    // Look up the just-created report for this vertical specifically, regardless
+    // of what the "browse history" filter is currently set to.
+    const listRes = await fetch(`/api/reports?vertical=${encodeURIComponent(genVertical)}`)
     const reports = await listRes.json()
     if (reports[0]) {
       setSelectedId(reports[0].id)
@@ -352,7 +372,15 @@ export default function Home() {
         {/* Section-specific sidebar content */}
         {tab === 'reports' && (
           <>
-            <div className="p-3 border-b border-[#E3E0D8]">
+            <div className="p-3 border-b border-[#E3E0D8] space-y-2">
+              <select
+                value={genVertical}
+                onChange={(e) => setGenVertical(e.target.value as Vertical)}
+                disabled={generating}
+                className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-2.5 py-2 disabled:opacity-50"
+              >
+                {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
+              </select>
               <button
                 onClick={generateReport}
                 disabled={generating}
@@ -369,11 +397,22 @@ export default function Home() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-2 px-1">History</p>
+              <div className="flex items-center justify-between mb-2 px-1 gap-2">
+                <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
+                <select
+                  value={historyFilter}
+                  onChange={(e) => setHistoryFilter(e.target.value as HistoryFilter)}
+                  className="text-xs bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-1.5 py-1"
+                >
+                  <option value="All Verticals">All</option>
+                  {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
+                </select>
+              </div>
               <ReportHistory
                 key={historyKey}
                 selectedId={selectedId}
                 onSelect={loadReport}
+                filterVertical={historyFilter}
               />
             </div>
           </>
@@ -430,7 +469,15 @@ export default function Home() {
             {/* Mobile-only: report history list */}
             {showReportList && (
               <div className="md:hidden flex flex-col h-full bg-[#F5F3EE]">
-                <div className="p-3 border-b border-[#E3E0D8]">
+                <div className="p-3 border-b border-[#E3E0D8] space-y-2">
+                  <select
+                    value={genVertical}
+                    onChange={(e) => setGenVertical(e.target.value as Vertical)}
+                    disabled={generating}
+                    className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-2.5 py-2 disabled:opacity-50"
+                  >
+                    {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
+                  </select>
                   <button
                     onClick={() => { generateReport(); setShowReportList(false) }}
                     disabled={generating}
@@ -442,8 +489,18 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-3">
-                  <p className="text-xs text-[#9CA3AF] uppercase tracking-wider mb-2 px-1">History</p>
-                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} />
+                  <div className="flex items-center justify-between mb-2 px-1 gap-2">
+                    <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
+                    <select
+                      value={historyFilter}
+                      onChange={(e) => setHistoryFilter(e.target.value as HistoryFilter)}
+                      className="text-xs bg-white border border-[#E3E0D8] rounded-lg px-1.5 py-1"
+                    >
+                      <option value="All Verticals">All</option>
+                      {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
+                    </select>
+                  </div>
+                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} filterVertical={historyFilter} />
                 </div>
               </div>
             )}
@@ -481,6 +538,9 @@ export default function Home() {
                           })}
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs bg-white text-[#6B6B6B] px-2 py-1 rounded-full border border-[#E3E0D8]">
+                        {selectedVertical === 'All' ? 'All Pillars' : selectedVertical}
+                      </span>
                       {isToday && (
                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] px-2 py-1 rounded-full border border-[#F5D3BC]">
                           Today

@@ -1,11 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/lib/twitter'
-import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
+import { buildSystemPrompt, buildUserPrompt, VERTICALS, type Vertical } from '@/lib/prompt'
 import { categoryForType } from '@/lib/signals'
 import { stripLoneSurrogates } from '@/lib/text'
 
 export const maxDuration = 300
+
+function parseVertical(value: unknown): Vertical {
+  return typeof value === 'string' && (VERTICALS as string[]).includes(value) ? (value as Vertical) : 'All'
+}
 
 async function fetchTrackedHandles(): Promise<string[]> {
   const supabase = getSupabase()
@@ -17,11 +21,14 @@ async function fetchTrackedHandles(): Promise<string[]> {
   return (data ?? []).map((row) => row.handle)
 }
 
-async function fetchCoveredTopics(): Promise<string> {
+// Only look at recent reports for the same vertical, so "avoid repeating"
+// coverage stays scoped to what that vertical's reports have already said.
+async function fetchCoveredTopics(vertical: Vertical): Promise<string> {
   const supabase = getSupabase()
   const { data } = await supabase
     .from('reports')
     .select('content')
+    .eq('vertical', vertical)
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -139,17 +146,20 @@ async function extractAndInsertPillarSignals(
 
 // ───────────────────────────────────────────────────────────────────────────
 
-export async function POST() {
+export async function POST(req: Request) {
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  const coveredTopics = await fetchCoveredTopics().catch(() => '')
+  const body = await req.json().catch(() => ({}))
+  const vertical = parseVertical((body as { vertical?: unknown })?.vertical)
+
+  const coveredTopics = await fetchCoveredTopics(vertical).catch(() => '')
   const trackedHandles = await fetchTrackedHandles().catch(() => [])
 
   let tweets: string
   let twitterSources: TwitterSource[] = []
   try {
-    const queries = await generateSearchQueries(coveredTopics).catch(() => null)
+    const queries = await generateSearchQueries(coveredTopics, vertical).catch(() => null)
     const result = await fetchRecentTweets(queries ?? undefined, trackedHandles)
     tweets = result.text
     twitterSources = result.sources
@@ -167,11 +177,11 @@ export async function POST() {
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 8000,
-          system: stripLoneSurrogates(buildSystemPrompt()),
+          system: stripLoneSurrogates(buildSystemPrompt(vertical)),
           messages: [
             {
               role: 'user',
-              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined)),
+              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined, vertical)),
             },
           ],
         })
@@ -190,7 +200,7 @@ export async function POST() {
         if (fullContent) {
           const { data: report } = await supabase
             .from('reports')
-            .insert({ date: today, content: fullContent, sources: twitterSources })
+            .insert({ date: today, content: fullContent, sources: twitterSources, vertical })
             .select()
             .single()
 
@@ -215,8 +225,12 @@ export async function POST() {
               }
               const taskInserts = lines.slice(0, 10).map((line) => {
                 const title = line.replace(/^[-*•]\s*/, '').trim().slice(0, 200)
+                // A vertical-scoped report already knows its pillar; only fall back to
+                // keyword-matching when the report covers all three ('All').
                 const lower = title.toLowerCase()
-                const pillar = Object.entries(pillarMap).find(([k]) => lower.includes(k))?.[1] ?? 'General'
+                const pillar = vertical !== 'All'
+                  ? vertical
+                  : Object.entries(pillarMap).find(([k]) => lower.includes(k))?.[1] ?? 'General'
                 return { title, pillar, source: 'report', report_id: report.id }
               })
               if (taskInserts.length > 0) {
