@@ -22,6 +22,7 @@ const UserManagementSection = dynamic(() => import('@/components/UserManagementS
 const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
 const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: false })
+const VoiceCapture = dynamic(() => import('@/components/VoiceCapture'), { ssr: false })
 const PodcastSection = dynamic(() => import('@/components/PodcastSection'), { ssr: false })
 const CompetitiveIntelSection = dynamic(() => import('@/components/CompetitiveIntelSection'), { ssr: false })
 const MeetingsSection = dynamic(() => import('@/components/MeetingsSection'), { ssr: false })
@@ -647,6 +648,7 @@ export default function Home() {
             onOpenFull={() => handleTabChange('chat')}
           />
         )}
+        <VoiceCapture pageContext={tab} />
         {tab === 'settings' && (
           <div className="flex flex-col md:flex-row h-full">
             {/* Settings sub-nav */}

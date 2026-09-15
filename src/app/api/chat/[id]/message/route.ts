@@ -5,6 +5,7 @@ import { fetchRecentTweets } from '@/lib/twitter'
 import { getRelevantContext } from '@/lib/context'
 import { categoryForType } from '@/lib/signals'
 import { computeGoalPacing } from '@/lib/goals'
+import { CAPTURE_TOOLS, executeCaptureTool } from '@/lib/actionTools'
 
 export const maxDuration = 300
 
@@ -19,129 +20,25 @@ const PACING_LABEL: Record<string, string> = {
   overdue: ' — OVERDUE',
 }
 
-const TOOLS: Anthropic.Tool[] = [
-  {
-    name: 'create_task',
-    description: 'Create a new task in the Tasks app. Use this when the user asks to add, save, or create tasks.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        title: { type: 'string', description: 'Short task title' },
-        description: { type: 'string', description: 'Optional longer description' },
-        pillar: {
-          type: 'string',
-          enum: ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General'],
-          description: 'Which Intellina pillar this task belongs to',
-        },
-      },
-      required: ['title'],
-    },
-  },
-  {
-    name: 'create_note',
-    description: 'Create a new note in the Notes app. Use this when the user asks to save, add, or create notes.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        title: { type: 'string', description: 'Note title' },
-        content: { type: 'string', description: 'Note body in markdown' },
-      },
-      required: ['title', 'content'],
-    },
-  },
-  {
-    name: 'list_tasks',
-    description: 'Retrieve all tasks from the Tasks app.',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'list_notes',
-    description: 'Retrieve all notes from the Notes app.',
-    input_schema: { type: 'object', properties: {} },
-  },
-  {
-    name: 'list_goals',
-    description: 'Retrieve the measurable pillar goals from the Goals hub, including progress toward target, target date, and pacing status (ahead/on-pace/behind/overdue). Use this when the user asks about goals, progress, targets, or how they are pacing.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        pillar: {
-          type: 'string',
-          enum: GOAL_PILLARS,
-          description: 'Optional — limit to a single pillar',
-        },
+const SEARCH_TWITTER_TOOL: Anthropic.Tool = {
+  name: 'search_twitter',
+  description: 'Search Twitter/X for live tweets on a topic. Only call this when the user explicitly asks to search Twitter, check Twitter, or look up something on Twitter/X.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      queries: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'List of search queries to run (1–5). Be specific — e.g. "Claude 4 release", "Gemini Ultra benchmark".',
       },
     },
+    required: ['queries'],
   },
-  {
-    name: 'list_thoughts',
-    description: 'Retrieve the user\'s saved Thoughts — spontaneous hashtag-tagged notes from the Strategic Mirror. Use this when the user asks to analyze, review, summarize, find patterns in, or discuss their thoughts.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        hashtag: { type: 'string', description: 'Optional hashtag (without #) to filter thoughts by' },
-      },
-    },
-  },
-  {
-    name: 'search_twitter',
-    description: 'Search Twitter/X for live tweets on a topic. Only call this when the user explicitly asks to search Twitter, check Twitter, or look up something on Twitter/X.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        queries: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'List of search queries to run (1–5). Be specific — e.g. "Claude 4 release", "Gemini Ultra benchmark".',
-        },
-      },
-      required: ['queries'],
-    },
-  },
-]
+}
+
+const TOOLS: Anthropic.Tool[] = [...CAPTURE_TOOLS, SEARCH_TWITTER_TOOL]
 
 async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
-  const supabase = getSupabase()
-
-  if (name === 'create_task') {
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert({
-        title: input.title as string,
-        description: (input.description as string) ?? null,
-        pillar: (input.pillar as string) ?? 'General',
-        status: 'todo',
-        source: 'report',
-      })
-      .select()
-      .single()
-    if (error) return `Error creating task: ${error.message}`
-    return `Task created: "${data.title}" (id: ${data.id})`
-  }
-
-  if (name === 'create_note') {
-    const { data, error } = await supabase
-      .from('notes')
-      .insert({
-        title: (input.title as string) ?? 'Untitled Note',
-        content: (input.content as string) ?? '',
-      })
-      .select()
-      .single()
-    if (error) return `Error creating note: ${error.message}`
-    return `Note created: "${data.title}" (id: ${data.id})`
-  }
-
-  if (name === 'list_tasks') {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('title, status, pillar')
-      .order('created_at', { ascending: false })
-    if (error) return `Error fetching tasks: ${error.message}`
-    if (!data || data.length === 0) return 'No tasks found.'
-    return data.map((t) => `- [${t.status}] ${t.title} (${t.pillar})`).join('\n')
-  }
-
   if (name === 'search_twitter') {
     const queries = (input.queries as string[]).slice(0, 5)
     try {
@@ -152,54 +49,8 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
     }
   }
 
-  if (name === 'list_notes') {
-    const { data, error } = await supabase
-      .from('notes')
-      .select('title')
-      .order('updated_at', { ascending: false })
-    if (error) return `Error fetching notes: ${error.message}`
-    if (!data || data.length === 0) return 'No notes found.'
-    return data.map((n) => `- ${n.title}`).join('\n')
-  }
-
-  if (name === 'list_goals') {
-    let query = supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at')
-    const pillar = input.pillar as string | undefined
-    if (pillar) query = query.eq('pillar', pillar)
-
-    const { data, error } = await query
-    if (error) return `Error fetching goals: ${error.message}`
-    if (!data || data.length === 0) return 'No goals found.'
-    return data
-      .map((g) => {
-        const pacing = computeGoalPacing(g)
-        return `- [${g.pillar}] ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
-      })
-      .join('\n')
-  }
-
-  if (name === 'list_thoughts') {
-    let query = supabase
-      .from('mirror_thoughts')
-      .select('content, hashtags, created_at')
-      .order('created_at', { ascending: false })
-      .limit(200)
-    const hashtag = input.hashtag as string | undefined
-    if (hashtag) query = query.contains('hashtags', [hashtag.toLowerCase()])
-
-    const { data, error } = await query
-    if (error) return `Error fetching thoughts: ${error.message}`
-    if (!data || data.length === 0) return 'No thoughts found.'
-    return data
-      .map((t) => {
-        const date = new Date(t.created_at).toISOString().slice(0, 10)
-        const tags = t.hashtags.length > 0 ? ` (${t.hashtags.map((h: string) => `#${h}`).join(' ')})` : ''
-        return `- [${date}]${tags} ${t.content}`
-      })
-      .join('\n')
-  }
-
-  return 'Unknown tool'
+  const result = await executeCaptureTool(name, input, { source: 'chat' })
+  return result.text
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
