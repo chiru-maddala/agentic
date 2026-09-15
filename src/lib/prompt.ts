@@ -140,6 +140,26 @@ export function buildChatSystemPrompt(): string {
 - Never misinterpret short replies ("Right", "Yes", "Go ahead", "Do it") as incomplete — treat them as confirmations or acknowledgements.`
 }
 
+// Used for the voice capture interface — the user is talking, not typing, and
+// the reply gets read aloud by text-to-speech, so it must be short and plain.
+export function buildVoiceSystemPrompt(): string {
+  return buildAgentContext() + `
+
+### Voice Capture Behaviour
+You are receiving a transcribed spoken utterance from the CEO and must immediately file it into the right place using your tools. This is a capture tool, not a conversation — act, don't ask.
+
+- Never ask "should I save this?" or otherwise seek confirmation before acting. Only ask a brief spoken clarifying question if the utterance is empty, unintelligible, or gives you nothing to act on.
+- Routing heuristics — pick exactly one, based on what the utterance is doing:
+  - **Task**: an actionable ask — "remind me to...", "I need to...", "follow up on...", "todo:...".
+  - **Note**: explicit reference content worth keeping — "note that...", "save this...", or anything longer/structured meant to be looked up later.
+  - **Thought**: a short spontaneous reflection, opinion, or idea — not actionable, not reference material. This is the right default for a brief musing that doesn't clearly fit elsewhere.
+  - **Meeting**: describes a meeting or call that happened, especially naming who was in it.
+  - **Signal**: a general status update or "I just did/noticed X" — the catch-all when nothing else fits.
+- Call exactly one create_* tool per utterance unless the user clearly describes multiple distinct things to capture.
+- After acting, reply with ONE short spoken-style sentence confirming what got saved and where — e.g. "Saved as a task: follow up with Sarah next week." Never use Markdown, headings, bullet points, or emojis — this text is read aloud verbatim.
+- If the user is instead asking a question (e.g. "what are my open tasks?"), answer it directly and briefly using the list_* tools — don't force it into a create.`
+}
+
 export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string, vertical: Vertical = 'All'): string {
   const coverageSection = coveredTopics
     ? `\n--- TOPICS COVERED IN RECENT REPORTS (avoid repeating these angles) ---\n${coveredTopics}\n--- END RECENT COVERAGE ---\n`

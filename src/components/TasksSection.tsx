@@ -9,7 +9,7 @@ type Task = {
   description: string | null
   pillar: string
   status: 'todo' | 'in-progress' | 'done'
-  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting' | 'goal_plan'
+  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting' | 'goal_plan' | 'voice'
   document_content: string | null
   goal_id: string | null
   created_at: string
@@ -36,6 +36,7 @@ const SOURCE_LABELS: Partial<Record<Task['source'], string>> = {
   chat: 'chat',
   meeting: 'meeting',
   goal_plan: 'goal plan',
+  voice: 'voice',
 }
 
 function DocumentPanel({
