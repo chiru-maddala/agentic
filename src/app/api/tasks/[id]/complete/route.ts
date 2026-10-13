@@ -24,7 +24,7 @@ export async function POST(
   const businessContext = ctxRow?.value ?? ''
   const docsContext = await getRelevantContext(
     supabase,
-    [task.title, task.description, task.pillar].filter(Boolean).join(' ')
+    [task.title, task.description].filter(Boolean).join(' ')
   )
 
   const client = new Anthropic()
@@ -48,7 +48,7 @@ export async function POST(
           messages: [
             {
               role: 'user',
-              content: `Please complete the following task and produce a detailed document as the output:\n\nTask: ${task.title}${task.description ? `\n\nDetails: ${task.description}` : ''}\n\nCategory: ${task.pillar}`,
+              content: `Please complete the following task and produce a detailed document as the output:\n\nTask: ${task.title}${task.description ? `\n\nDetails: ${task.description}` : ''}`,
             },
           ],
         })
@@ -72,7 +72,6 @@ export async function POST(
             type: 'task_completed',
             category: categoryForType('task_completed'),
             content: `Completed task: "${task.title}"`,
-            pillar: task.pillar ?? null,
             metadata: { task_id: task.id },
           })).catch(() => {})
         }

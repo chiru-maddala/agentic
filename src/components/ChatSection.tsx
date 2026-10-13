@@ -194,7 +194,7 @@ export default function ChatSection() {
         {!activeSession ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
             <div className="text-5xl mb-4">💬</div>
-            <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2">Intellina AI Assistant</h2>
+            <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2">AI Ready School Assistant</h2>
             <p className="text-[#9CA3AF] text-sm max-w-xs">
               Ask questions about AI trends, get strategic advice, or analyze report insights.
             </p>
@@ -294,7 +294,7 @@ export default function ChatSection() {
                     e.preventDefault()
                     handleFiles(e.dataTransfer.files)
                   }}
-                  placeholder="Ask anything about AI, Intellina strategy, or your reports…"
+                  placeholder="Ask anything about K-12 AI, AI Ready School, or your reports…"
                   rows={2}
                   disabled={streaming}
                   className="flex-1 bg-white border border-[#E3E0D8] text-[#1A1A1A] text-sm rounded-xl px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30 focus:border-[#D4622A] placeholder-[#9CA3AF] disabled:opacity-50 transition-colors"

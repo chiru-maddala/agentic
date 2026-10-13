@@ -30,10 +30,9 @@ export async function POST(
     .eq('goal_id', id)
   const existingTitles = (existingTasks ?? []).map((t) => `- ${t.title}`).join('\n') || 'None yet.'
 
-  const prompt = `You are helping Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI, turn an approved goal plan into concrete next-step tasks.
+  const prompt = `You are helping Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI, turn an approved goal plan into concrete next-step tasks for AI Ready School, the company's K-12 offering.
 
 Goal: ${goal.name}
-Pillar: ${goal.pillar}
 Target: ${goal.target_number ?? 'not set'} by ${goal.target_date ?? 'not set'}
 Current progress: ${goal.current_value ?? 'not logged yet'}
 

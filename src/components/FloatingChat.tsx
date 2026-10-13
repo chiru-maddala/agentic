@@ -12,11 +12,11 @@ type Props = {
 
 const SUGGESTIONS: Record<string, string[]> = {
   dashboard:  ['What should I focus on today?', 'Summarise my in-progress tasks', 'What momentum do I have this week?'],
-  reports:    ['What are the key takeaways from this report?', 'Which pillar had the most activity today?', 'What actions should I take from this?'],
-  tasks:      ['What tasks are most overdue?', 'Help me prioritise my to-do list', 'Which pillar has the most open work?'],
+  reports:    ['What are the key takeaways from this report?', 'What does this mean for AI Ready School?', 'What actions should I take from this?'],
+  tasks:      ['What tasks are most overdue?', 'Help me prioritise my to-do list', 'Which tasks serve my goals?'],
   notes:      ['Help me expand this note', 'Summarise what I have saved', 'Find connections between my notes'],
   mirror:     ['How is my progress against my goals?', 'Where am I drifting from my intent?', 'What should I focus on this week?'],
-  research:   ['Summarise what I just researched', 'How does this relate to Intellina?', 'What are the key signals here?'],
+  research:   ['Summarise what I just researched', 'How does this relate to AI Ready School?', 'What are the key signals here?'],
   chat:       [],
   default:    ['What are the latest AI trends?', 'Help me think through a strategy', 'What should I work on next?'],
 }
@@ -132,7 +132,7 @@ export default function FloatingChat({ pageContext, onOpenFull }: Props) {
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[#E3E0D8] bg-white flex-shrink-0">
-          <span className="text-sm font-semibold text-[#1A1A1A] flex-1">Ask IntelliRadar</span>
+          <span className="text-sm font-semibold text-[#1A1A1A] flex-1">Ask AI Ready School</span>
           {pageContext && (
             <span className="text-xs text-[#9CA3AF] bg-[#F5F3EE] px-2 py-0.5 rounded-full truncate max-w-[140px]">
               {pageContext.split('.')[0]}
@@ -249,7 +249,7 @@ export default function FloatingChat({ pageContext, onOpenFull }: Props) {
             : 'bg-[#D4622A] hover:bg-[#C05520]'
           }
         `}
-        title={open ? 'Close chat' : 'Ask IntelliRadar'}
+        title={open ? 'Close chat' : 'Ask AI Ready School'}
       >
         {open ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

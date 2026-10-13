@@ -32,7 +32,6 @@ export async function PATCH(
       type: 'goal_progress_updated',
       category: categoryForType('goal_progress_updated'),
       content: `Updated progress on "${data.name}": ${body.current_value ?? 0}${data.target_number != null ? ` / ${data.target_number}` : ''}`,
-      pillar: data.pillar ?? null,
       metadata: { goal_id: data.id },
     })).catch(() => {})
   }

@@ -28,7 +28,7 @@ export async function POST(
   const businessContext = ctxRow?.value ?? ''
   const docsContext = await getRelevantContext(
     supabase,
-    [goal.name, goal.pillar].filter(Boolean).join(' ')
+    goal.name
   )
 
   const client = new Anthropic()
@@ -39,8 +39,8 @@ export async function POST(
       let fullContent = ''
       try {
         const systemPrompt = [
-          `You are an expert strategic planner helping Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI, hit a specific measurable goal.`,
-          `When given a goal, you produce a thorough, well-structured plan document — concrete phases, milestones, and the reasoning behind them. Not generic advice: name real levers specific to this goal and pillar.`,
+          `You are an expert strategic planner helping Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI, hit a specific measurable goal for AI Ready School, the company's K-12 offering (Learnia with Morpheus, NEO, Trinity and Zion; K12 Skill Center; Matrix).`,
+          `When given a goal, you produce a thorough, well-structured plan document — concrete phases, milestones, and the reasoning behind them. Not generic advice: name real levers specific to this goal, K-12 schools, and the AI Ready School products. Account for school buying cycles, student safety and privacy (COPPA, FERPA), and teacher adoption.`,
           `Format your response as clean HTML (use h2, h3, p, ul, ol, strong, table tags as appropriate). Do not include <html>, <head>, or <body> tags.`,
           businessContext ? `\n\nBusiness Context:\n${businessContext}` : '',
           docsContext ? `\n\nReference Documents:\n${docsContext}` : '',
@@ -48,7 +48,7 @@ export async function POST(
 
         const userPrompt = feedback
           ? `Here is the current plan document for this goal:\n\n${goal.plan_document ?? ''}\n\nRevise it based on this feedback: ${feedback}\n\nProduce the full revised document (not just the changes).`
-          : `Produce a plan document for this goal:\n\nGoal: ${goal.name}\nPillar: ${goal.pillar}\nTarget: ${goal.target_number ?? 'not set'} by ${goal.target_date ?? 'not set'}\nCurrent progress: ${goal.current_value ?? 'not logged yet'}`
+          : `Produce a plan document for this goal:\n\nGoal: ${goal.name}\nTarget: ${goal.target_number ?? 'not set'} by ${goal.target_date ?? 'not set'}\nCurrent progress: ${goal.current_value ?? 'not logged yet'}`
 
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',

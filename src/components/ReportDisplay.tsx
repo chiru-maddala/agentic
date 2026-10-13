@@ -15,13 +15,12 @@ export type TwitterSource = {
 type Props = {
   content: string
   streaming?: boolean
-  onCourseCreated?: () => void
   twitterSources?: TwitterSource[]
 }
 
-export default function ReportDisplay({ content, streaming, onCourseCreated, twitterSources }: Props) {
+export default function ReportDisplay({ content, streaming, twitterSources }: Props) {
   return (
-    <ContextMenuWrapper onCourseCreated={onCourseCreated} showCourse>
+    <ContextMenuWrapper>
       <div className="prose prose-sm max-w-none
         prose-headings:text-[#1A1A1A] prose-headings:font-semibold
         prose-p:text-[#374151] prose-p:leading-relaxed

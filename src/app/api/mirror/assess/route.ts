@@ -30,7 +30,7 @@ async function generateAssessment(): Promise<Response> {
 
   // Fetch all context in parallel
   const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
-    supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at'),
+    supabase.from('mirror_pillar_goals').select('*').order('created_at'),
     supabase
       .from('mirror_signals')
       .select('*')
@@ -38,7 +38,7 @@ async function generateAssessment(): Promise<Response> {
       .limit(50),
     supabase
       .from('tasks')
-      .select('title, status, pillar, created_at')
+      .select('title, status, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('reports')
@@ -58,23 +58,19 @@ async function generateAssessment(): Promise<Response> {
   const reports = reportsRes.data ?? []
   const thoughts = thoughtsRes.data ?? []
 
-  // Goals context — structured measurable goals per pillar, with pacing vs. target
-  const GOAL_PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-  const goalsContext = GOAL_PILLARS.map((p) => {
-    const pillarGoals = goals.filter((g) => g.pillar === p)
-    if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
-    const lines = pillarGoals
-      .map((g) => {
-        const pacing = computeGoalPacing(g)
-        return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
-      })
-      .join('\n')
-    return `**${p}**\n${lines}`
-  }).join('\n\n')
+  // Goals context — structured measurable K-12 goals, with pacing vs. target
+  const goalsContext = goals.length > 0
+    ? goals
+        .map((g) => {
+          const pacing = computeGoalPacing(g)
+          return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+        })
+        .join('\n')
+    : 'No measurable goals set.'
 
   // Signals context
   // World Signals = external intelligence (reports, research) — what's happening
-  // outside Intellina that's relevant to it.
+  // outside Intellina that's relevant to AI Ready School.
   // Actions = evidence of what Chiru actually did (check-ins, tasks, notes, chats).
   const category = (s: typeof signals[number]) => s.category ?? categoryForType(s.type)
   const worldSignals = signals.filter((s) => category(s) === 'world')
@@ -83,7 +79,7 @@ async function generateAssessment(): Promise<Response> {
   const otherActions = actionSignals.filter((s) => s.type !== 'chat_insight')
 
   const formatSignal = (s: typeof signals[number]) =>
-    `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
+    `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}]${s.content}`
 
   const signalsContext = [
     worldSignals.length > 0
@@ -107,19 +103,15 @@ async function generateAssessment(): Promise<Response> {
     : 'None recorded yet.'
 
   // Task health
-  const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-  const taskSummary = PILLARS.map((p) => {
-    const pt = tasks.filter((t) => t.pillar === p)
-    const done = pt.filter((t) => t.status === 'done').length
-    const inProgress = pt.filter((t) => t.status === 'in-progress').length
-    const todo = pt.filter((t) => t.status === 'todo').length
-    return `${p}: ${pt.length} total (${done} done, ${inProgress} in-progress, ${todo} todo)`
-  }).join('\n')
+  const doneCount = tasks.filter((t) => t.status === 'done').length
+  const inProgressCount = tasks.filter((t) => t.status === 'in-progress').length
+  const todoCount = tasks.filter((t) => t.status === 'todo').length
+  const taskSummary = `${tasks.length} total (${doneCount} done, ${inProgressCount} in-progress, ${todoCount} todo)`
 
   const recentTasks = tasks
     .filter((t) => t.status !== 'done')
     .slice(0, 10)
-    .map((t) => `- [${t.status}] ${t.title} (${t.pillar})`)
+    .map((t) => `- [${t.status}] ${t.title}`)
     .join('\n')
 
   // Report topics
@@ -136,13 +128,13 @@ async function generateAssessment(): Promise<Response> {
           .join('\n')
       : 'No reports generated yet.'
 
-  const systemPrompt = `You are a strategic coach and trusted advisor for Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI. You have been watching closely — you know his goals, you've seen his activity, and you have full context on the company's three pillars: Learning AI, Enterprise AI, and AI Infrastructure.
+  const systemPrompt = `You are a strategic coach and trusted advisor for Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI. You have been watching closely — you know his goals, you've seen his activity, and you have full context on AI Ready School, the company's K-12 offering: Learnia (Morpheus teaching system, NEO student co-pilot, Trinity teacher co-pilot, Zion AI tool suite), K12 Skill Center (on-campus programs and certifications), and Matrix (agentic school management platform).
 
 Your job is to give an honest, specific, and actionable coaching assessment. Not a summary — a mirror. Name what you see. Call out the gaps without being harsh. Point to the highest-leverage moves. Ground every observation in the actual signals and data you have — never be vague, never be generic.
 
 You have two categories of signals, plus Thoughts:
-- **World Signals**: External intelligence auto-extracted from daily research reports and research runs, tagged by pillar where relevant. These represent what's happening in the world outside Intellina — market moves, competitor activity, trends — not anything Chiru did himself.
-- **Actions**: Evidence of what Chiru actually did — manual check-ins, tasks created and completed, notes saved, and things he said in chat sessions ("CEO's Own Words"). Within Actions, weigh **completions more heavily than creations**: creating a task signals intent and direction, but completing one is real, executed progress. A pillar with many tasks created and few completed is not "active" — it's stalled.
+- **World Signals**: External intelligence auto-extracted from daily research reports and research runs. These represent what's happening in the world outside Intellina — market moves, competitor activity, trends — not anything Chiru did himself.
+- **Actions**: Evidence of what Chiru actually did — manual check-ins, tasks created and completed, notes saved, and things he said in chat sessions ("CEO's Own Words"). Within Actions, weigh **completions more heavily than creations**: creating a task signals intent and direction, but completing one is real, executed progress. A goal with many tasks created and few completed is not "active" — it's stalled.
 - **Thoughts**: Short, spontaneous, unfiltered notes Chiru jots down in the moment — often tagged with hashtags. These are raw and unstructured, but they capture things he wouldn't otherwise write down: reactions, half-formed ideas, frustrations, sparks of interest. Treat these as high-signal, low-polish — the rawest window into what's actually on his mind day to day.
 
 Use all of these in combination. Pay special attention to what Chiru says in his own words from chat and in his thoughts — it often reveals priorities, anxieties, or opportunities that don't appear anywhere else. When you spot a gap between what the World Signals are indicating (an opportunity, a threat, a trend) and what the Actions show, name it explicitly. That gap is where the coaching is.
@@ -160,7 +152,7 @@ ${signalsContext}
 ## SPONTANEOUS THOUGHTS (recent, most recent first)
 ${thoughtsContext}
 
-## TASK HEALTH BY PILLAR
+## TASK HEALTH
 ${taskSummary}
 
 ## ACTIVE TASKS (not yet done)
@@ -173,11 +165,11 @@ Generate a Strategic Mirror Assessment. Use this exact structure:
 ### 🎯 Overall Momentum
 2–3 sentences on the overall trajectory. Is progress accelerating, coasting, or drifting? Be direct.
 
-### 📊 Pillar Health
-For each pillar, give:
+### 📊 Goal Health
+For each stated goal (or, if none are set, each theme you infer from the activity), give:
 - A momentum signal: **↑ Accelerating** | **↗ Building** | **→ Steady** | **↘ Slowing** | **↓ Drifting**
 - 2–3 sentences of honest assessment grounded in the signals and tasks above
-- The single most important thing happening (or not happening) in this pillar right now
+- The single most important thing happening (or not happening) for this goal right now
 
 ### 🔍 Gaps & Blind Spots
 3–5 specific, named gaps between stated goals and observed activity. Each gap must cite evidence — a signal, a task pattern, or an absence. Be honest. What is being said but not done? What is important but getting no attention?

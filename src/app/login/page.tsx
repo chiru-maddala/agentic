@@ -34,8 +34,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[#D4622A]">IntelliRadar</h1>
-          <p className="text-[#9CA3AF] text-sm mt-1">Intellina AI Daily Intelligence</p>
+          <h1 className="text-2xl font-bold text-[#D4622A]">AI Ready School</h1>
+          <p className="text-[#9CA3AF] text-sm mt-1">K-12 AI Intelligence</p>
         </div>
 
         <div className="bg-white rounded-xl border border-[#E3E0D8] p-6 shadow-sm">

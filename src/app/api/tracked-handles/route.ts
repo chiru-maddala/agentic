@@ -15,13 +15,12 @@ export async function POST(req: Request) {
   const supabase = getSupabase()
   const body = await req.json()
   const handle = String(body.handle ?? '').trim().replace(/^@/, '')
-  const pillar = body.pillar ? String(body.pillar) : null
 
   if (!handle) return Response.json({ error: 'Handle is required' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('tracked_handles')
-    .insert({ handle, pillar })
+    .insert({ handle })
     .select()
     .single()
 

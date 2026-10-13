@@ -34,9 +34,9 @@ function stripMarkdown(md: string, maxLen = 200): string {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const report = await getReport(id)
-  if (!report) return { title: 'Research Report not found — IntelliRadar' }
+  if (!report) return { title: 'Research Report not found — AI Ready School' }
 
-  const title = `${report.title || 'Research Report'} — IntelliRadar`
+  const title = `${report.title || 'Research Report'} — AI Ready School`
   const description = stripMarkdown(report.content ?? '')
 
   return {
@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: 'article',
-      siteName: 'IntelliRadar · Intellina AI',
+      siteName: 'AI Ready School · Intellina AI',
       publishedTime: report.created_at,
     },
     twitter: { card: 'summary', title, description },
@@ -69,7 +69,7 @@ export default async function ShareResearchPage({ params }: Props) {
       <header className="bg-white border-b border-[#E3E0D8] sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-base font-bold text-[#D4622A]">IntelliRadar</span>
+            <span className="text-base font-bold text-[#D4622A]">AI Ready School</span>
             <span className="text-[#E3E0D8]">·</span>
             <span className="text-sm text-[#6B6B6B]">Research Intelligence</span>
           </div>
@@ -141,7 +141,7 @@ export default async function ShareResearchPage({ params }: Props) {
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">
-        <p className="text-center text-xs text-[#C4BFB5]">Powered by IntelliRadar · Intellina AI</p>
+        <p className="text-center text-xs text-[#C4BFB5]">Powered by AI Ready School · Intellina AI</p>
       </footer>
     </div>
   )

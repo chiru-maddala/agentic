@@ -1,15 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { getSupabase } from '@/lib/supabase'
 import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/lib/twitter'
-import { buildSystemPrompt, buildUserPrompt, VERTICALS, type Vertical } from '@/lib/prompt'
+import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 import { categoryForType } from '@/lib/signals'
 import { stripLoneSurrogates } from '@/lib/text'
 
 export const maxDuration = 300
-
-function parseVertical(value: unknown): Vertical {
-  return typeof value === 'string' && (VERTICALS as string[]).includes(value) ? (value as Vertical) : 'All'
-}
 
 async function fetchTrackedHandles(): Promise<string[]> {
   const supabase = getSupabase()
@@ -21,14 +17,12 @@ async function fetchTrackedHandles(): Promise<string[]> {
   return (data ?? []).map((row) => row.handle)
 }
 
-// Only look at recent reports for the same vertical, so "avoid repeating"
-// coverage stays scoped to what that vertical's reports have already said.
-async function fetchCoveredTopics(vertical: Vertical): Promise<string> {
+// Summarize recent reports so "avoid repeating" coverage stays current.
+async function fetchCoveredTopics(): Promise<string> {
   const supabase = getSupabase()
   const { data } = await supabase
     .from('reports')
     .select('content')
-    .eq('vertical', vertical)
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -46,22 +40,14 @@ async function fetchCoveredTopics(vertical: Vertical): Promise<string> {
 }
 
 // ─── Cross-module signal extraction ────────────────────────────────────────
-// After each report is saved, parse per-pillar insights and push them into
-// mirror_signals so the Strategic Mirror Coach has granular, tagged context.
+// After each report is saved, parse per-section insights and push them into
+// mirror_signals so the Strategic Mirror Coach has granular context.
 
-const PILLAR_PATTERNS: { pillar: string; patterns: RegExp[] }[] = [
-  {
-    pillar: 'Learning AI',
-    patterns: [/📚.*?Learning AI Pillar/i, /Learning AI Pillar/i],
-  },
-  {
-    pillar: 'Enterprise AI',
-    patterns: [/🤖.*?Enterprise AI/i, /Enterprise AI Pillar/i, /Orchea/i],
-  },
-  {
-    pillar: 'AI Infrastructure',
-    patterns: [/☁️.*?AI Infrastructure/i, /AI Infrastructure Pillar/i],
-  },
+const SECTION_PATTERNS: RegExp[][] = [
+  [/🎓.*?Student & Teacher AI/i, /Student & Teacher AI/i],
+  [/🏫.*?School Operations/i, /School Operations & Leadership/i],
+  [/🧪.*?Skills, Programs/i, /Skills, Programs & Careers/i],
+  [/🛡️.*?Safety, Privacy/i, /Safety, Privacy & Policy/i],
 ]
 
 function extractSection(content: string, sectionPatterns: RegExp[]): string {
@@ -85,7 +71,7 @@ function extractBulletInsights(sectionText: string, maxItems = 4): string[] {
     .slice(0, maxItems)
 }
 
-async function extractAndInsertPillarSignals(
+async function extractAndInsertSignals(
   content: string,
   reportId: string,
   date: string,
@@ -95,7 +81,6 @@ async function extractAndInsertPillarSignals(
     type: string
     category: ReturnType<typeof categoryForType>
     content: string
-    pillar: string | null
     metadata: Record<string, unknown>
   }[] = []
 
@@ -104,12 +89,11 @@ async function extractAndInsertPillarSignals(
     type: 'report_generated',
     category: categoryForType('report_generated'),
     content: `Daily intelligence report generated for ${date}`,
-    pillar: null,
     metadata: { report_id: reportId, date },
   })
 
-  // Per-pillar insight signals
-  for (const { pillar, patterns } of PILLAR_PATTERNS) {
+  // Per-section insight signals
+  for (const patterns of SECTION_PATTERNS) {
     const section = extractSection(content, patterns)
     if (!section) continue
     const insights = extractBulletInsights(section)
@@ -118,14 +102,13 @@ async function extractAndInsertPillarSignals(
         type: 'report_insight',
         category: categoryForType('report_insight'),
         content: insight,
-        pillar,
         metadata: { report_id: reportId, date },
       })
     }
   }
 
-  // Extract "Why it matters for Intellina" items as strategic signals
-  const whyMatters = [...content.matchAll(/Why it matters for Intellina[:\s]+([^\n]+)/gi)]
+  // Extract "Why it matters for AI Ready School" items as strategic signals
+  const whyMatters = [...content.matchAll(/Why it matters for AI Ready School[:\s]+([^\n]+)/gi)]
   for (const m of whyMatters.slice(0, 6)) {
     const text = m[1].replace(/\*\*/g, '').trim()
     if (text.length > 20) {
@@ -133,7 +116,6 @@ async function extractAndInsertPillarSignals(
         type: 'report_strategic',
         category: categoryForType('report_strategic'),
         content: text,
-        pillar: null,
         metadata: { report_id: reportId, date },
       })
     }
@@ -146,20 +128,17 @@ async function extractAndInsertPillarSignals(
 
 // ───────────────────────────────────────────────────────────────────────────
 
-export async function POST(req: Request) {
+export async function POST() {
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  const body = await req.json().catch(() => ({}))
-  const vertical = parseVertical((body as { vertical?: unknown })?.vertical)
-
-  const coveredTopics = await fetchCoveredTopics(vertical).catch(() => '')
+  const coveredTopics = await fetchCoveredTopics().catch(() => '')
   const trackedHandles = await fetchTrackedHandles().catch(() => [])
 
   let tweets: string
   let twitterSources: TwitterSource[] = []
   try {
-    const queries = await generateSearchQueries(coveredTopics, vertical).catch(() => null)
+    const queries = await generateSearchQueries(coveredTopics).catch(() => null)
     const result = await fetchRecentTweets(queries ?? undefined, trackedHandles)
     tweets = result.text
     twitterSources = result.sources
@@ -177,11 +156,11 @@ export async function POST(req: Request) {
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 8000,
-          system: stripLoneSurrogates(buildSystemPrompt(vertical)),
+          system: stripLoneSurrogates(buildSystemPrompt()),
           messages: [
             {
               role: 'user',
-              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined, vertical)),
+              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined)),
             },
           ],
         })
@@ -200,38 +179,20 @@ export async function POST(req: Request) {
         if (fullContent) {
           const { data: report } = await supabase
             .from('reports')
-            .insert({ date: today, content: fullContent, sources: twitterSources, vertical })
+            .insert({ date: today, content: fullContent, sources: twitterSources })
             .select()
             .single()
 
           // Auto-extract tasks from Priority Actions section
           if (report) {
-            // Auto-signal capture: extract per-pillar insights and inject into mirror_signals
-            void extractAndInsertPillarSignals(fullContent, report.id, today).catch(() => {})
+            // Auto-signal capture: extract per-section insights and inject into mirror_signals
+            void extractAndInsertSignals(fullContent, report.id, today).catch(() => {})
             const actionsMatch = fullContent.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)
             if (actionsMatch) {
               const lines = actionsMatch[0].split('\n').filter((l) => /^[-*•]\s/.test(l.trim()))
-              const pillarMap: Record<string, string> = {
-                'learning': 'Learning AI',
-                'cypher': 'Learning AI',
-                'morpheus': 'Learning AI',
-                'autocampus': 'Learning AI',
-                'orchea': 'Enterprise AI',
-                'enterprise': 'Enterprise AI',
-                'databricks': 'Enterprise AI',
-                'terranine': 'AI Infrastructure',
-                'matrix': 'AI Infrastructure',
-                'infrastructure': 'AI Infrastructure',
-              }
               const taskInserts = lines.slice(0, 10).map((line) => {
                 const title = line.replace(/^[-*•]\s*/, '').trim().slice(0, 200)
-                // A vertical-scoped report already knows its pillar; only fall back to
-                // keyword-matching when the report covers all three ('All').
-                const lower = title.toLowerCase()
-                const pillar = vertical !== 'All'
-                  ? vertical
-                  : Object.entries(pillarMap).find(([k]) => lower.includes(k))?.[1] ?? 'General'
-                return { title, pillar, source: 'report', report_id: report.id }
+                return { title, pillar: 'General', source: 'report', report_id: report.id }
               })
               if (taskInserts.length > 0) {
                 await supabase.from('tasks').insert(taskInserts)

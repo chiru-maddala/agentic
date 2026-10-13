@@ -13,20 +13,17 @@ export async function PATCH(
   if (body.status !== undefined) update.status = body.status
   if (body.title !== undefined) update.title = body.title
   if (body.description !== undefined) update.description = body.description
-  if (body.pillar !== undefined) update.pillar = body.pillar
-  if (body.person_id !== undefined) update.person_id = body.person_id
-  if (body.meeting_id !== undefined) update.meeting_id = body.meeting_id
   if (body.goal_id !== undefined) update.goal_id = body.goal_id
 
-  let justCompleted: { title: string; pillar: string | null } | null = null
+  let justCompleted: { title: string } | null = null
   if (body.status === 'done') {
     const { data: existing } = await supabase
       .from('tasks')
-      .select('title, pillar, status')
+      .select('title, status')
       .eq('id', id)
       .single()
     if (existing && existing.status !== 'done') {
-      justCompleted = { title: existing.title, pillar: existing.pillar ?? null }
+      justCompleted = { title: existing.title }
     }
   }
 
@@ -39,7 +36,6 @@ export async function PATCH(
       type: 'task_completed',
       category: categoryForType('task_completed'),
       content: `Completed task: "${justCompleted.title}"`,
-      pillar: justCompleted.pillar,
       metadata: { task_id: id },
     })).catch(() => {})
   }

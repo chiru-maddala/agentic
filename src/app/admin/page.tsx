@@ -52,7 +52,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-950 text-white">
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <span className="text-indigo-400 font-bold text-lg">IntelliRadar</span>
+          <span className="text-indigo-400 font-bold text-lg">AI Ready School</span>
           <span className="text-gray-500 text-sm ml-3">Admin</span>
         </div>
         <div className="flex items-center gap-4">

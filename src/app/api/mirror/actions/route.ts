@@ -14,24 +14,18 @@ const PACING_LABEL: Record<string, string> = {
 
 export const maxDuration = 120
 
-export type PillarAction = {
+export type SuggestedAction = {
   title: string
   description: string
   urgency: 'high' | 'medium' | 'low'
-  pillar: string
-}
-
-export type PillarStatus = {
-  pillar: string
-  momentum: 'accelerating' | 'building' | 'steady' | 'slowing' | 'drifting'
-  momentum_note: string
-  progress_pct: number
-  actions: PillarAction[]
 }
 
 export type ActionsPayload = {
   focus_today: string
-  pillars: PillarStatus[]
+  momentum: 'accelerating' | 'building' | 'steady' | 'slowing' | 'drifting'
+  momentum_note: string
+  progress_pct: number
+  actions: SuggestedAction[]
   generated_at: string
 }
 
@@ -48,9 +42,9 @@ async function generateActions(): Promise<Response> {
   const supabase = getSupabase()
 
   const [goalsRes, signalsRes, tasksRes, reportsRes, thoughtsRes] = await Promise.all([
-    supabase.from('mirror_pillar_goals').select('*').order('pillar').order('created_at'),
+    supabase.from('mirror_pillar_goals').select('*').order('created_at'),
     supabase.from('mirror_signals').select('*').order('created_at', { ascending: false }).limit(60),
-    supabase.from('tasks').select('title, status, pillar, created_at').order('created_at', { ascending: false }),
+    supabase.from('tasks').select('title, status, created_at').order('created_at', { ascending: false }),
     supabase.from('reports').select('date, content').order('created_at', { ascending: false }).limit(3),
     supabase.from('mirror_thoughts').select('content, hashtags, created_at').order('created_at', { ascending: false }).limit(30),
   ])
@@ -61,31 +55,23 @@ async function generateActions(): Promise<Response> {
   const reports = reportsRes.data ?? []
   const thoughts = thoughtsRes.data ?? []
 
-  const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
+  // Task progress across all K-12 work
+  const done = tasks.filter((t) => t.status === 'done').length
+  const inProgress = tasks.filter((t) => t.status === 'in-progress').length
+  const todo = tasks.filter((t) => t.status === 'todo').length
+  const pct = tasks.length > 0 ? Math.round((done / tasks.length) * 100) : 0
 
-  // Compute task progress per pillar
-  const taskStats = PILLARS.map((p) => {
-    const pt = tasks.filter((t) => t.pillar === p)
-    const done = pt.filter((t) => t.status === 'done').length
-    const total = pt.length
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0
-    return { pillar: p, done, inProgress: pt.filter((t) => t.status === 'in-progress').length, todo: pt.filter((t) => t.status === 'todo').length, total, pct }
-  })
-
-  const goalsContext = PILLARS.map((p) => {
-    const pillarGoals = goals.filter((g) => g.pillar === p)
-    if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
-    const lines = pillarGoals
-      .map((g) => {
-        const pacing = computeGoalPacing(g)
-        return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
-      })
-      .join('\n')
-    return `**${p}**\n${lines}`
-  }).join('\n\n')
+  const goalsContext = goals.length > 0
+    ? goals
+        .map((g) => {
+          const pacing = computeGoalPacing(g)
+          return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+        })
+        .join('\n')
+    : 'No measurable goals set.'
 
   const formatSignal = (s: typeof signals[number]) =>
-    `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] [${s.type}]${s.pillar ? ` [${s.pillar}]` : ''} ${s.content}`
+    `[${new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}] [${s.type}] ${s.content}`
 
   const recentSignals = signals.slice(0, 40)
   const worldSignals = recentSignals.filter((s) => (s.category ?? categoryForType(s.type)) === 'world')
@@ -102,18 +88,15 @@ async function generateActions(): Promise<Response> {
       ).join('\n')
     : 'None recorded yet.'
 
-  const taskContext = PILLARS.map((p) => {
-    const s = taskStats.find((t) => t.pillar === p)!
-    const open = tasks.filter((t) => t.pillar === p && t.status !== 'done').slice(0, 5).map((t) => `  - [${t.status}] ${t.title}`).join('\n')
-    return `${p}: ${s.total} total (${s.done} done, ${s.inProgress} in-progress, ${s.todo} todo)\n${open}`
-  }).join('\n\n')
+  const openTasks = tasks.filter((t) => t.status !== 'done').slice(0, 8).map((t) => `  - [${t.status}] ${t.title}`).join('\n')
+  const taskContext = `${tasks.length} total (${done} done, ${inProgress} in-progress, ${todo} todo)\n${openTasks}`
 
   const reportHeadings = reports.map((r) => {
     const h = [...r.content.matchAll(/^#{1,2} .+/gm)].map((m) => m[0].replace(/^#{1,2} /, '')).slice(0, 4).join(' · ')
     return `${r.date}: ${h}`
   }).join('\n')
 
-  const prompt = `You are a strategic coach for Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI.
+  const prompt = `You are a strategic coach for Chiranjeevi (Chiru), Co-founder & CEO of Intellina AI. His focus is AI Ready School, the company's K-12 offering: Learnia (Morpheus teaching system, NEO student co-pilot, Trinity teacher co-pilot, Zion AI tool suite), K12 Skill Center (on-campus programs and certifications), and Matrix (agentic school management platform).
 
 GOALS:
 ${goalsContext}
@@ -131,7 +114,7 @@ RECENT REPORT TOPICS:
 ${reportHeadings || 'None yet.'}
 
 TASK PROGRESS:
-${taskStats.map((s) => `${s.pillar}: ${s.pct}% done (${s.done}/${s.total} tasks)`).join('\n')}
+${pct}% done (${done}/${tasks.length} tasks)
 
 ---
 
@@ -139,44 +122,24 @@ Respond with ONLY valid JSON matching this exact schema (no markdown, no explana
 
 {
   "focus_today": "The single most important thing Chiru should do today. One crisp sentence.",
-  "pillars": [
+  "momentum": "steady",
+  "momentum_note": "2 sentences of honest, specific assessment grounded in the signals and tasks.",
+  "progress_pct": 35,
+  "actions": [
     {
-      "pillar": "Learning AI",
-      "momentum": "steady",
-      "momentum_note": "2 sentences of honest, specific assessment grounded in the signals and tasks.",
-      "progress_pct": 35,
-      "actions": [
-        {
-          "title": "Short action title (5-10 words, imperative verb)",
-          "description": "1 sentence why this is the highest-leverage move right now",
-          "urgency": "high",
-          "pillar": "Learning AI"
-        },
-        { "title": "...", "description": "...", "urgency": "medium", "pillar": "Learning AI" },
-        { "title": "...", "description": "...", "urgency": "low", "pillar": "Learning AI" }
-      ]
+      "title": "Short action title (5-10 words, imperative verb)",
+      "description": "1 sentence why this is the highest-leverage move right now",
+      "urgency": "high"
     },
-    {
-      "pillar": "Enterprise AI",
-      "momentum": "...",
-      "momentum_note": "...",
-      "progress_pct": 0,
-      "actions": [...]
-    },
-    {
-      "pillar": "AI Infrastructure",
-      "momentum": "...",
-      "momentum_note": "...",
-      "progress_pct": 0,
-      "actions": [...]
-    }
+    { "title": "...", "description": "...", "urgency": "medium" },
+    { "title": "...", "description": "...", "urgency": "low" }
   ]
 }
 
 momentum must be one of: accelerating, building, steady, slowing, drifting
 urgency must be one of: high, medium, low
 progress_pct should reflect actual task completion data, adjusted by recent signal activity
-Actions must be specific to the goals and signals — never generic. Name real products, deadlines, or gaps you can see in the data.`
+Actions must be specific to the goals and signals — never generic. Name real AI Ready School products, deadlines, or gaps you can see in the data.`
 
   const client = new Anthropic()
   const msg = await client.messages.create({

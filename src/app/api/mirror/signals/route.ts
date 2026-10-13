@@ -22,7 +22,6 @@ export async function POST(req: Request) {
     type,
     category: categoryForType(type),
     content: body.content,
-    pillar: body.pillar ?? null,
     metadata: body.metadata ?? {},
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })

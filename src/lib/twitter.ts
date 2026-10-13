@@ -1,9 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TwitterApi } from 'twitter-api-v2'
 import { stripLoneSurrogates } from './text'
-import type { Vertical } from './prompt'
 
-// Always-on queries for breaking AI news — run regardless of pillar focus
+// Always-on queries for breaking AI news — run regardless of K-12 focus
 const BREAKING_NEWS_QUERIES = [
   'new AI model release announcement',
   'AI breakthrough trending',
@@ -12,38 +11,16 @@ const BREAKING_NEWS_QUERIES = [
 const FALLBACK_QUERIES = [
   ...BREAKING_NEWS_QUERIES,
   'AI education K-12',
-  'agentic AI enterprise',
-  'AI infrastructure GPU compute',
-  'LLM new model release',
-  'AI orchestration multi-agent',
-  'Databricks AI',
-  'edge AI inference',
+  'AI tutor personalized learning',
+  'AI teacher assistant classroom',
+  'AI school policy student privacy',
+  'AI literacy computational thinking students',
 ]
 
-const FALLBACK_QUERIES_BY_VERTICAL: Record<Exclude<Vertical, 'All'>, string[]> = {
-  'Learning AI': ['AI education K-12', 'higher education AI knowledge graph', 'AI tutor personalized learning'],
-  'Enterprise AI': ['agentic AI enterprise', 'AI orchestration multi-agent', 'Databricks AI'],
-  'AI Infrastructure': ['AI infrastructure GPU compute', 'edge AI inference', 'AI data center power cooling'],
-}
+const K12_DESCRIPTION =
+  'K-12 AI: student and teacher AI co-pilots, personalized learning, AI assessment, school management and analytics, AI/CT/deeptech skill programs and certifications, career guidance, and AI safety, privacy and policy in schools'
 
-const PILLAR_DESCRIPTIONS: Record<Exclude<Vertical, 'All'>, string> = {
-  'Learning AI': 'K-12 AI tools, higher education AI, professional AI courses, knowledge graphs',
-  'Enterprise AI': 'agentic orchestration, multi-agent systems, Databricks, no-code AI platforms',
-  'AI Infrastructure': 'GPU/compute, edge AI, space computing, inference optimization',
-}
-
-export async function generateSearchQueries(coveredTopics: string, vertical: Vertical = 'All'): Promise<string[]> {
-  const scopeDescription = vertical === 'All'
-    ? `The company (Intellina AI) focuses on three pillars:
-- Learning AI: ${PILLAR_DESCRIPTIONS['Learning AI']}
-- Enterprise AI: ${PILLAR_DESCRIPTIONS['Enterprise AI']}
-- AI Infrastructure: ${PILLAR_DESCRIPTIONS['AI Infrastructure']}`
-    : `The company (Intellina AI) has a "${vertical}" pillar: ${PILLAR_DESCRIPTIONS[vertical]}`
-
-  const scopeInstruction = vertical === 'All'
-    ? 'Generate exactly 5 fresh, specific Twitter search queries scoped to the three pillars above that will surface NEW signals not covered above.'
-    : `Generate exactly 5 fresh, specific Twitter search queries scoped ONLY to the "${vertical}" pillar above that will surface NEW signals not covered above.`
-
+export async function generateSearchQueries(coveredTopics: string): Promise<string[]> {
   const client = new Anthropic()
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -51,31 +28,28 @@ export async function generateSearchQueries(coveredTopics: string, vertical: Ver
     messages: [
       {
         role: 'user',
-        content: `You generate Twitter/X search queries for an AI company intelligence feed.
+        content: `You generate Twitter/X search queries for a K-12 AI education intelligence feed.
 
-${scopeDescription}
+The company (Intellina AI) builds AI Ready School, focused on: ${K12_DESCRIPTION}
 
 Recently covered topics (avoid repeating these angles):
 ${coveredTopics}
 
-${scopeInstruction}
+Generate exactly 5 fresh, specific Twitter search queries scoped to K-12 AI education that will surface NEW signals not covered above.
 Output only the queries, one per line, no numbering or punctuation prefix.`,
       },
     ],
   })
 
   const text = message.content[0].type === 'text' ? message.content[0].text : ''
-  const pillarQueries = text
+  const topicQueries = text
     .split('\n')
     .map((q) => q.trim())
     .filter((q) => q.length > 0)
     .slice(0, 5)
 
-  const fallback = vertical === 'All' ? FALLBACK_QUERIES.slice(2) : FALLBACK_QUERIES_BY_VERTICAL[vertical]
-
   // Always prepend breaking-news queries so trending AI stories are never missed
-  const queries = [...BREAKING_NEWS_QUERIES, ...(pillarQueries.length >= 3 ? pillarQueries : fallback)]
-  return queries
+  return [...BREAKING_NEWS_QUERIES, ...(topicQueries.length >= 3 ? topicQueries : FALLBACK_QUERIES.slice(2))]
 }
 
 export type TwitterSource = {
@@ -86,26 +60,22 @@ export type TwitterSource = {
   query: string
 }
 
-// Keyword gate used to check tracked-handle tweets against the three pillars —
+// Keyword gate used to check tracked-handle tweets against the K-12 focus —
 // handles aren't scoped to a query like search results are, so an explicit
 // relevance check keeps off-topic posts from a trusted account out of the report.
-const PILLAR_KEYWORDS = [
-  // Learning AI
-  'k-12', 'k12', 'higher education', 'edtech', 'ai tutor', 'personalized learning',
-  'knowledge graph', 'curriculum', 'student ai', 'ai literacy', 'education ai',
-  // Enterprise AI
-  'agentic', 'orchestration', 'multi-agent', 'multiagent', 'no-code ai', 'low-code ai',
-  'databricks', 'guardrails', 'rag', 'ai agent', 'enterprise ai', 'agent framework',
-  // AI Infrastructure
-  'gpu', 'compute', 'edge ai', 'inference', 'space computing', 'data center', 'datacenter',
-  'chip', 'nvidia', 'tpu', 'cooling',
+const RELEVANCE_KEYWORDS = [
+  // K-12 education
+  'k-12', 'k12', 'school', 'student', 'teacher', 'classroom', 'edtech', 'ai tutor',
+  'personalized learning', 'curriculum', 'ai literacy', 'education ai', 'assessment',
+  'coppa', 'ferpa', 'computational thinking', 'certification', 'internship',
   // Breaking-news catch-all
   'ai model', 'llm', 'breakthrough', 'launches', 'release', 'open-source ai', 'foundation model',
+  'ai agent', 'agentic',
 ]
 
-function isRelevantToPillars(text: string): boolean {
+function isRelevant(text: string): boolean {
   const lower = text.toLowerCase()
-  return PILLAR_KEYWORDS.some((kw) => lower.includes(kw))
+  return RELEVANCE_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
 async function fetchTrackedHandleTweets(
@@ -133,7 +103,7 @@ async function fetchTrackedHandleTweets(
       if (!response.data?.data) continue
 
       for (const tweet of response.data.data) {
-        if (!isRelevantToPillars(tweet.text)) continue
+        if (!isRelevant(tweet.text)) continue
         if (seenIds.has(tweet.id)) continue
 
         const text = stripLoneSurrogates(tweet.text)

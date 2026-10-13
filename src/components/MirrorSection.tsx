@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import ReportDisplay from './ReportDisplay'
-import type { ActionsPayload, PillarStatus } from '@/app/api/mirror/actions/route'
+import type { ActionsPayload } from '@/app/api/mirror/actions/route'
 import type { Thought } from '@/app/api/mirror/thoughts/route'
 import { categoryForType, type SignalCategory } from '@/lib/signals'
 
@@ -15,19 +15,7 @@ type Signal = {
   type: string
   category?: SignalCategory
   content: string
-  pillar: string | null
   created_at: string
-}
-
-const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-
-const PILLAR_COLORS: Record<string, {
-  border: string; badge: string; icon: string
-  bg: string; accent: string; bar: string; text: string
-}> = {
-  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚', bg: 'bg-blue-50',   accent: 'border-blue-300', bar: 'bg-blue-500',   text: 'text-blue-700' },
-  'Enterprise AI':     { border: 'border-violet-200', badge: 'bg-violet-50 text-violet-700', icon: '🤖', bg: 'bg-violet-50', accent: 'border-violet-300', bar: 'bg-violet-500', text: 'text-violet-700' },
-  'AI Infrastructure': { border: 'border-amber-200',  badge: 'bg-amber-50 text-amber-700',  icon: '☁️', bg: 'bg-amber-50',  accent: 'border-amber-300', bar: 'bg-amber-500',  text: 'text-amber-700' },
 }
 
 const MOMENTUM_META: Record<string, { label: string; icon: string; color: string }> = {
@@ -54,31 +42,30 @@ const SIGNAL_META: Record<string, { label: string; color: string; icon: string }
   research_done:    { label: 'Research',      color: 'bg-indigo-50 text-indigo-700',      icon: '🔍' },
 }
 
-// ─── Pillar Action Card ───────────────────────────────────────────────────────
-function PillarCard({ data, onAddTask }: {
-  data: PillarStatus
-  onAddTask: (title: string, pillar: string) => Promise<void>
+// ─── K-12 Status & Action Card ────────────────────────────────────────────────
+function StatusCard({ data, onAddTask }: {
+  data: ActionsPayload
+  onAddTask: (title: string) => Promise<void>
 }) {
-  const colors = PILLAR_COLORS[data.pillar]
   const momentum = MOMENTUM_META[data.momentum] ?? MOMENTUM_META.steady
   const [adding, setAdding] = useState<string | null>(null)
   const [added, setAdded] = useState<Set<string>>(new Set())
 
   const handleAdd = async (title: string) => {
     setAdding(title)
-    await onAddTask(title, data.pillar)
+    await onAddTask(title)
     setAdded((prev) => new Set(prev).add(title))
     setAdding(null)
   }
 
   return (
-    <div className={`bg-white border ${colors.border} rounded-2xl overflow-hidden shadow-sm flex flex-col`}>
-      {/* Pillar header */}
-      <div className={`px-5 py-4 ${colors.bg} border-b ${colors.accent}`}>
+    <div className="bg-white border border-blue-200 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+      {/* Header */}
+      <div className="px-5 py-4 bg-blue-50 border-b border-blue-300">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">{colors.icon}</span>
+          <span className="text-xl">🎓</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#1A1A1A] truncate">{data.pillar}</p>
+            <p className="text-sm font-semibold text-[#1A1A1A] truncate">AI Ready School</p>
             <p className={`text-xs px-2 py-0.5 rounded-full border inline-flex items-center gap-1 mt-1 font-medium ${momentum.color}`}>
               <span className="text-base leading-none">{momentum.icon}</span>
               {momentum.label}
@@ -89,11 +76,11 @@ function PillarCard({ data, onAddTask }: {
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-[#6B6B6B]">Task completion</span>
-            <span className={`text-xs font-semibold ${colors.text}`}>{data.progress_pct}%</span>
+            <span className="text-xs font-semibold text-blue-700">{data.progress_pct}%</span>
           </div>
           <div className="h-1.5 bg-white/70 rounded-full overflow-hidden">
             <div
-              className={`h-full ${colors.bar} rounded-full transition-all duration-700`}
+              className="h-full bg-blue-500 rounded-full transition-all duration-700"
               style={{ width: `${data.progress_pct}%` }}
             />
           </div>
@@ -296,7 +283,6 @@ export default function MirrorSection() {
   const [signals, setSignals] = useState<Signal[]>([])
   const [signalFilter, setSignalFilter] = useState<'all' | SignalCategory>('all')
   const [checkin, setCheckin] = useState('')
-  const [checkinPillar, setCheckinPillar] = useState('')
   const [checkinSaving, setCheckinSaving] = useState(false)
   const [assessment, setAssessment] = useState('')
   const [lastAssessedAt, setLastAssessedAt] = useState<string | null>(null)
@@ -337,7 +323,7 @@ export default function MirrorSection() {
       const savedActions = localStorage.getItem('mirror_last_actions')
       if (savedActions) {
         const parsed: ActionsPayload = JSON.parse(savedActions)
-        if (Array.isArray(parsed?.pillars)) {
+        if (Array.isArray(parsed?.actions)) {
           setActions(parsed)
           setActionsAt(parsed.generated_at)
         } else {
@@ -355,9 +341,9 @@ export default function MirrorSection() {
     await fetch('/api/mirror/signals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'manual_checkin', content: checkin.trim(), pillar: checkinPillar || null }),
+      body: JSON.stringify({ type: 'manual_checkin', content: checkin.trim() }),
     })
-    setCheckin(''); setCheckinPillar(''); setCheckinSaving(false)
+    setCheckin(''); setCheckinSaving(false)
     loadSignals()
   }
 
@@ -409,7 +395,7 @@ export default function MirrorSection() {
     try {
       const res = await fetch('/api/mirror/actions', { method: 'POST' })
       const data: ActionsPayload = await res.json()
-      if (!res.ok || !Array.isArray(data.pillars)) return
+      if (!res.ok || !Array.isArray(data.actions)) return
       setActions(data)
       setActionsAt(data.generated_at)
       localStorage.setItem('mirror_last_actions', JSON.stringify(data))
@@ -454,7 +440,7 @@ export default function MirrorSection() {
       try {
         const actionsRes = await fetch('/api/mirror/actions', { method: 'POST' })
         const actionsData: ActionsPayload & { error?: string } = await actionsRes.json()
-        if (actionsRes.ok && Array.isArray(actionsData.pillars)) {
+        if (actionsRes.ok && Array.isArray(actionsData.actions)) {
           setActions(actionsData)
           setActionsAt(actionsData.generated_at)
           localStorage.setItem('mirror_last_actions', JSON.stringify(actionsData))
@@ -497,11 +483,11 @@ export default function MirrorSection() {
     if (errors.length) setRunError(errors.join(' · '))
   }
 
-  const addTask = async (title: string, pillar: string) => {
+  const addTask = async (title: string) => {
     await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, pillar, status: 'todo', source: 'mirror' }),
+      body: JSON.stringify({ title, status: 'todo', source: 'mirror' }),
     })
   }
 
@@ -585,7 +571,7 @@ export default function MirrorSection() {
                 <h2 className="text-lg font-semibold text-[#1A1A1A] mb-2">Run your first assessment</h2>
                 <p className="text-sm text-[#9CA3AF] max-w-sm mb-6">
                   The coach reads your goals, activity signals, task data, and recent reports —
-                  then shows you where you stand and the top 3 moves per pillar.
+                  then shows you where you stand and the top 3 moves for AI Ready School.
                 </p>
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg mb-4">
                   Tip: Define your goals in the Goals section first for a richer assessment.
@@ -603,9 +589,7 @@ export default function MirrorSection() {
             {(actionsLoading && !actions) && (
               <div className="space-y-4">
                 <div className="h-20 bg-white border border-[#E3E0D8] rounded-2xl animate-pulse" />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[0,1,2].map((i) => <div key={i} className="h-72 bg-white border border-[#E3E0D8] rounded-2xl animate-pulse" />)}
-                </div>
+                <div className="h-72 bg-white border border-[#E3E0D8] rounded-2xl animate-pulse" />
               </div>
             )}
 
@@ -626,16 +610,14 @@ export default function MirrorSection() {
                   )}
                 </div>
 
-                {/* Pillar cards */}
+                {/* Status card */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillar Status & Suggested Actions</h2>
+                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">K-12 Status & Suggested Actions</h2>
                     <p className="text-xs text-[#C4BFB5]">Hover an action to add it as a Task</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {actions.pillars.map((pillar) => (
-                      <PillarCard key={pillar.pillar} data={pillar} onAddTask={addTask} />
-                    ))}
+                  <div className="max-w-2xl">
+                    <StatusCard data={actions} onAddTask={addTask} />
                   </div>
                 </div>
 
@@ -712,11 +694,6 @@ export default function MirrorSection() {
                   className="w-full bg-transparent text-sm text-[#374151] placeholder-[#C4BFB5] resize-none focus:outline-none leading-relaxed mb-3"
                 />
                 <div className="flex items-center gap-2">
-                  <select value={checkinPillar} onChange={(e) => setCheckinPillar(e.target.value)}
-                    className="text-xs text-[#6B6B6B] bg-[#F5F3EE] border border-[#E3E0D8] rounded-lg px-2 py-1.5 focus:outline-none">
-                    <option value="">No pillar tag</option>
-                    {PILLARS.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
                   <button onClick={submitCheckin} disabled={!checkin.trim() || checkinSaving}
                     className="ml-auto bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium py-1.5 px-4 rounded-lg transition-colors">
                     {checkinSaving ? 'Saving…' : 'Save signal'}
@@ -760,11 +737,6 @@ export default function MirrorSection() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                           <SignalBadge type={s.type} />
-                          {s.pillar && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${PILLAR_COLORS[s.pillar]?.badge ?? 'bg-[#F5F3EE] text-[#6B6B6B]'}`}>
-                              {s.pillar}
-                            </span>
-                          )}
                         </div>
                         <p className="text-sm text-[#374151] leading-relaxed">{s.content}</p>
                       </div>

@@ -29,7 +29,6 @@ export async function POST(req: Request) {
     type: 'note_created',
     category: categoryForType('note_created'),
     content: `Saved note: "${data.title}"`,
-    pillar: null,
     metadata: { note_id: data.id },
   })).catch(() => {})
 
