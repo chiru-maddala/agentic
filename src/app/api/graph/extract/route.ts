@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'user',
         content: `You are building a strategic knowledge graph for Intellina AI, a company with three pillars:
-- **Learning AI**: AI for K-12 (Cypher, Morpheus, Zion, NEO, Matrix), Higher Ed (AutoCampus), Professional training (RED AI Academy)
+- **Learning AI**: AI for K-12 (AI Ready School: Learnia with Morpheus/NEO/Trinity/Zion, K12 Skill Center, Matrix school management), Higher Ed (AutoCampus), Professional training (RED AI Academy)
 - **Enterprise AI**: Orchea.ai — no-code agentic orchestration on Databricks, T2 Framework, RAG, guardrails
 - **AI Infrastructure**: TerraNine.ai (space), MATRIX (on-ground compute)
 

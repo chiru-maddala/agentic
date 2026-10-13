@@ -63,7 +63,7 @@ type GoalTab = 'plan' | 'achieved' | 'tasks' | 'meetings'
 const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
 
 const PILLAR_META: Record<string, { border: string; badge: string; icon: string; products: string }> = {
-  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚', products: 'Cypher · AutoCampus · RED AI' },
+  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚', products: 'Learnia · K12 Skill Center · Matrix · AutoCampus · RED AI' },
   'Enterprise AI':     { border: 'border-violet-200', badge: 'bg-violet-50 text-violet-700', icon: '🤖', products: 'Orchea.ai' },
   'AI Infrastructure': { border: 'border-amber-200',  badge: 'bg-amber-50 text-amber-700',  icon: '☁️', products: 'TerraNine · MATRIX' },
 }
