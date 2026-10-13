@@ -9,8 +9,6 @@ import { CAPTURE_TOOLS, executeCaptureTool } from '@/lib/actionTools'
 
 export const maxDuration = 300
 
-const GOAL_PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-
 const PACING_LABEL: Record<string, string> = {
   'no-target': '',
   'no-progress': ' — no progress logged yet',
@@ -111,7 +109,6 @@ async function captureAsChatSignal(
     type: 'chat_insight',
     category: categoryForType('chat_insight'),
     content: message.slice(0, 500),
-    pillar: null,
     metadata: { session_id: sessionId, source: 'chat' },
   })
 }
@@ -151,8 +148,7 @@ export async function POST(
 
   const { data: goals } = await supabase
     .from('mirror_pillar_goals')
-    .select('pillar, name, target_number, target_date, current_value, created_at')
-    .order('pillar')
+    .select('name, target_number, target_date, current_value, created_at')
     .order('created_at')
 
   // Only keep the last 20 messages to avoid unbounded context growth
@@ -178,23 +174,18 @@ export async function POST(
           .join('\n')
       : ''
 
-  // Structured measurable goals per pillar, with pacing vs. target — same shape as
+  // Structured measurable goals, with pacing vs. target — same shape as
   // the Strategic Mirror Coach assessment, so Chat can reason about progress consistently
   const goalsContext =
     goals && goals.length > 0
-      ? '\n\n### Current Pillar Goals:\n' +
-        GOAL_PILLARS.map((p) => {
-          const pillarGoals = goals.filter((g) => g.pillar === p)
-          if (pillarGoals.length === 0) return `**${p}**: No measurable goals set.`
-          const lines = pillarGoals
-            .map((g) => {
-              const pacing = computeGoalPacing(g)
-              return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
-            })
-            .join('\n')
-          return `**${p}**\n${lines}`
-        }).join('\n\n')
-      : ''
+      ? '\n\n### Current K-12 Goals:\n' +
+        goals
+          .map((g) => {
+            const pacing = computeGoalPacing(g)
+            return `- ${g.name}: ${g.current_value ?? 0}/${g.target_number ?? '?'} (target: ${g.target_date ?? 'no date set'})${PACING_LABEL[pacing.status]}`
+          })
+          .join('\n')
+      : '\n\n### Current K-12 Goals:\nNo measurable goals set.'
 
   // Retrieve only the context-document chunks relevant to this message
   const docsContext = await getRelevantContext(supabase, message)

@@ -22,18 +22,18 @@ async function getNote(id: string) {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
   const note = await getNote(id)
-  if (!note) return { title: 'Note — IntelliRadar' }
+  if (!note) return { title: 'Note — AI Ready School' }
   const desc = toHtml(note.content ?? '').replace(/<[^>]+>/g, '').slice(0, 200)
   return {
-    title: `${note.title} — IntelliRadar`,
+    title: `${note.title} — AI Ready School`,
     description: desc,
     openGraph: {
-      title: `${note.title} — IntelliRadar`,
+      title: `${note.title} — AI Ready School`,
       description: desc,
-      siteName: 'IntelliRadar · Intellina AI',
+      siteName: 'AI Ready School · Intellina AI',
       type: 'article',
     },
-    twitter: { card: 'summary', title: `${note.title} — IntelliRadar`, description: desc },
+    twitter: { card: 'summary', title: `${note.title} — AI Ready School`, description: desc },
   }
 }
 
@@ -85,9 +85,9 @@ export default async function ShareNotePage({ params }: { params: Promise<{ id: 
 
         {/* Branding footer */}
         <div className="mt-8 flex items-center justify-center gap-2 text-xs text-[#9CA3AF]">
-          <span className="font-semibold text-[#D4622A]">IntelliRadar</span>
+          <span className="font-semibold text-[#D4622A]">AI Ready School</span>
           <span>·</span>
-          <span>Intellina AI Daily Intelligence</span>
+          <span>K-12 AI Intelligence</span>
         </div>
       </div>
     </div>

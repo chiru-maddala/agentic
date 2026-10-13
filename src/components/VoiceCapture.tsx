@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 type Phase = 'idle' | 'recording' | 'transcribing' | 'thinking' | 'speaking' | 'error'
 
 type CapturedEntity = {
-  table: 'tasks' | 'notes' | 'mirror_thoughts' | 'meetings'
+  table: 'tasks' | 'notes' | 'mirror_thoughts'
   id: string
   label: string
 }
@@ -18,14 +18,12 @@ const UNDO_PATH: Record<CapturedEntity['table'], string> = {
   tasks: '/api/tasks',
   notes: '/api/notes',
   mirror_thoughts: '/api/mirror/thoughts',
-  meetings: '/api/meetings',
 }
 
 const ENTITY_LABEL: Record<CapturedEntity['table'], string> = {
   tasks: 'task',
   notes: 'note',
   mirror_thoughts: 'thought',
-  meetings: 'meeting',
 }
 
 const UNDO_TIMEOUT_MS = 8000
@@ -203,7 +201,7 @@ export default function VoiceCapture({ pageContext }: Props) {
       <button
         onClick={handleClick}
         disabled={busy}
-        title={phase === 'idle' ? 'Talk to IntelliRadar' : statusText}
+        title={phase === 'idle' ? 'Talk to AI Ready School' : statusText}
         className={`
           fixed bottom-24 right-6 z-50 w-14 h-14 rounded-full shadow-xl
           flex items-center justify-center transition-all duration-200

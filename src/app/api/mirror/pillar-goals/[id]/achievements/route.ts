@@ -56,7 +56,6 @@ export async function POST(
     type: 'goal_achievement_added',
     category: categoryForType('goal_achievement_added'),
     content: `Logged achievement on "${goal.name}": ${achievement.title}`,
-    pillar: goal.pillar ?? null,
     metadata: { goal_id: id, achievement_id: achievement.id },
   })).catch(() => {})
 

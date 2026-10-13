@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from 'react'
 type Task = {
   id: string
   title: string
-  pillar: string
   status: 'todo' | 'in-progress' | 'done'
   source: 'manual' | 'report' | 'chat'
   created_at: string
@@ -14,19 +13,7 @@ type Task = {
 type Report = { id: string; date: string; created_at: string; content: string }
 type Note = { id: string; title: string; updated_at: string }
 
-const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-
-const PILLAR_COLORS: Record<string, { bg: string; bar: string; badge: string; text: string }> = {
-  'Learning AI':       { bg: 'bg-blue-50',   bar: 'bg-blue-400',   badge: 'bg-blue-100 text-blue-700',   text: 'text-blue-600' },
-  'Enterprise AI':     { bg: 'bg-violet-50', bar: 'bg-violet-400', badge: 'bg-violet-100 text-violet-700', text: 'text-violet-600' },
-  'AI Infrastructure': { bg: 'bg-amber-50',  bar: 'bg-amber-400',  badge: 'bg-amber-100 text-amber-700',  text: 'text-amber-600' },
-}
-
-const PILLAR_ICONS: Record<string, string> = {
-  'Learning AI': '📚',
-  'Enterprise AI': '🤖',
-  'AI Infrastructure': '☁️',
-}
+const TASK_COLORS = { bg: 'bg-blue-50', bar: 'bg-blue-400', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-600' }
 
 const STATUS_COLORS: Record<Task['status'], string> = {
   'todo': 'bg-[#C4BFB5]',
@@ -51,7 +38,7 @@ function greeting(date: Date) {
 }
 
 type Props = {
-  onNavigate: (tab: 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'settings') => void
+  onNavigate: (tab: 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'research' | 'goals' | 'mirror' | 'settings') => void
   onGenerateReport: () => void
   generating: boolean
 }
@@ -91,7 +78,7 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
 
   // Recent activity: merge tasks + notes, sort by created_at/updated_at descending
   const recentActivity = [
-    ...tasks.slice(0, 20).map((t) => ({ type: 'task' as const, label: t.title, sub: t.pillar, time: t.created_at, status: t.status })),
+    ...tasks.slice(0, 20).map((t) => ({ type: 'task' as const, label: t.title, sub: t.status === 'done' ? 'Done' : t.status === 'in-progress' ? 'In progress' : 'To do', time: t.created_at, status: t.status })),
     ...notes.slice(0, 10).map((n) => ({ type: 'note' as const, label: n.title, sub: 'Note', time: n.updated_at, status: null })),
   ]
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
@@ -110,7 +97,7 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
               {now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </p>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">{greeting(now)}, Chiru</h1>
-            <p className="text-sm text-[#6B6B6B] mt-0.5">Here's your Intellina intelligence overview.</p>
+            <p className="text-sm text-[#6B6B6B] mt-0.5">Here's your AI Ready School overview.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -173,26 +160,26 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Pillar cards — 2/3 width */}
+          {/* Task card — 2/3 width */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillars</h2>
-            {PILLARS.map((pillar) => {
-              const pt = tasks.filter((t) => t.pillar === pillar)
+            <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">AI Ready School</h2>
+            {[0].map((card) => {
+              const pt = tasks
               const pd = pt.filter((t) => t.status === 'done').length
               const pip = pt.filter((t) => t.status === 'in-progress')
               const ptodo = pt.filter((t) => t.status === 'todo')
               const ppct = pt.length > 0 ? Math.round((pd / pt.length) * 100) : 0
-              const colors = PILLAR_COLORS[pillar]
+              const colors = TASK_COLORS
 
               return (
                 <button
-                  key={pillar}
+                  key={card}
                   onClick={() => onNavigate('tasks')}
                   className={`w-full text-left bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm hover:shadow-md hover:border-[#C4BFB5] transition-all group`}
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">{PILLAR_ICONS[pillar]}</span>
-                    <span className="text-sm font-semibold text-[#1A1A1A]">{pillar}</span>
+                    <span className="text-lg">🎓</span>
+                    <span className="text-sm font-semibold text-[#1A1A1A]">Tasks</span>
                     <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${colors.badge}`}>{ppct}%</span>
                     <span className="text-xs text-[#9CA3AF]">{pt.length} tasks</span>
                     <svg className="w-4 h-4 text-[#C4BFB5] group-hover:text-[#6B6B6B] transition-colors ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -323,7 +310,7 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
               { id: 'tasks', label: 'Tasks', icon: '✅' },
               { id: 'notes', label: 'Notes', icon: '📝' },
               { id: 'research', label: 'Research', icon: '🔍' },
-              { id: 'contentlab', label: 'Content Lab', icon: '🧪' },
+              { id: 'goals', label: 'Goals', icon: '🎯' },
             ].map((item) => (
               <button
                 key={item.id}

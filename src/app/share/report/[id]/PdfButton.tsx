@@ -26,7 +26,7 @@ export default function PdfButton({ date }: { date: string }) {
         if (i > 0) pdf.addPage()
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
       }
-      pdf.save(`IntelliRadar-${date}.pdf`)
+      pdf.save(`AI Ready School-${date}.pdf`)
     } finally {
       document.body.removeChild(clone)
     }

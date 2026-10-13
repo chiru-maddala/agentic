@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { TwitterSource } from '@/components/ReportDisplay'
-import { VERTICALS, type Vertical } from '@/lib/prompt'
 
 const ReportHistory = dynamic(() => import('@/components/ReportHistory'), { ssr: false })
 const ReportDisplay = dynamic(() => import('@/components/ReportDisplay'), { ssr: false })
@@ -13,25 +12,17 @@ const TasksSection = dynamic(() => import('@/components/TasksSection'), { ssr: f
 const NotesSection = dynamic(() => import('@/components/NotesSection'), { ssr: false })
 const DashboardSection = dynamic(() => import('@/components/DashboardSection'), { ssr: false })
 const MirrorSection = dynamic(() => import('@/components/MirrorSection'), { ssr: false })
-const CoursesSection = dynamic(() => import('@/components/CoursesSection'), { ssr: false })
-const ContentLabSection = dynamic(() => import('@/components/ContentLabSection'), { ssr: false })
-const ContentSuggestions = dynamic(() => import('@/components/ContentSuggestions'), { ssr: false })
 const ContextSection = dynamic(() => import('@/components/ContextSection'), { ssr: false })
 const SourcesSection = dynamic(() => import('@/components/SourcesSection'), { ssr: false })
 const UserManagementSection = dynamic(() => import('@/components/UserManagementSection'), { ssr: false })
-const KnowledgeGraphSection = dynamic(() => import('@/components/KnowledgeGraphSection'), { ssr: false })
 const ResearchSection = dynamic(() => import('@/components/ResearchSection'), { ssr: false })
 const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: false })
 const VoiceCapture = dynamic(() => import('@/components/VoiceCapture'), { ssr: false })
-const PodcastSection = dynamic(() => import('@/components/PodcastSection'), { ssr: false })
-const CompetitiveIntelSection = dynamic(() => import('@/components/CompetitiveIntelSection'), { ssr: false })
-const MeetingsSection = dynamic(() => import('@/components/MeetingsSection'), { ssr: false })
 const GoalsSection = dynamic(() => import('@/components/GoalsSection'), { ssr: false })
-const PeopleSettingsSection = dynamic(() => import('@/components/PeopleSettingsSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'courses' | 'contentlab' | 'graph' | 'research' | 'mirror' | 'goals' | 'meetings' | 'podcast' | 'competitive'
-type SettingsTab = 'context' | 'sources' | 'people' | 'users'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'research' | 'mirror' | 'goals'
+type SettingsTab = 'context' | 'sources' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
   reports: (
@@ -59,22 +50,6 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
     </svg>
   ),
-  courses: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-    </svg>
-  ),
-  contentlab: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
-    </svg>
-  ),
-  graph: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="12" cy="8" r="2"/>
-      <line x1="7" y1="12" x2="17" y2="6"/><line x1="7" y1="12" x2="17" y2="18"/><line x1="14" y1="8" x2="17" y2="6"/>
-    </svg>
-  ),
   research: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -91,49 +66,20 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
       <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>
     </svg>
   ),
-  meetings: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>
-    </svg>
-  ),
-  podcast: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
-    </svg>
-  ),
-  competitive: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
-    </svg>
-  ),
 }
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'mirror', label: 'Strategic Mirror' },
   { id: 'goals', label: 'Goals' },
-  { id: 'meetings', label: 'Meetings' },
   { id: 'reports', label: 'Reports' },
   { id: 'chat', label: 'Chat' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'notes', label: 'Notes' },
-  { id: 'courses', label: 'Presentations' },
-  { id: 'contentlab', label: 'Content Lab' },
-  { id: 'graph', label: 'Knowledge Graph' },
   { id: 'research', label: 'Research' },
-  { id: 'podcast', label: 'Podcast' },
-  { id: 'competitive', label: 'Competitive Intel' },
 ]
 
 const VALID_TABS = new Set<Tab | 'settings'>([...TABS.map((t) => t.id), 'settings'])
-
-const VERTICAL_LABELS: Record<Vertical, string> = {
-  'All': 'All Pillars (Combined)',
-  'Learning AI': 'Learning AI',
-  'Enterprise AI': 'Enterprise AI',
-  'AI Infrastructure': 'AI Infrastructure',
-}
-type HistoryFilter = Vertical | 'All Verticals'
 
 // useLayoutEffect on the client (runs before paint), useEffect on the server
 // (effects don't run during SSR anyway) to silence the SSR warning.
@@ -147,9 +93,6 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
-  const [selectedVertical, setSelectedVertical] = useState<Vertical>('All')
-  const [genVertical, setGenVertical] = useState<Vertical>('All')
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('All Verticals')
   const [content, setContent] = useState<string>('')
   const [twitterSources, setTwitterSources] = useState<TwitterSource[]>([])
   const [streaming, setStreaming] = useState(false)
@@ -213,7 +156,6 @@ export default function Home() {
     const data = await res.json()
     setContent(data.content ?? '')
     setTwitterSources(data.sources ?? [])
-    setSelectedVertical((data.vertical as Vertical) ?? 'All')
   }, [])
 
   const generateReport = async () => {
@@ -222,14 +164,9 @@ export default function Home() {
     setSelectedDate(null)
     setContent('')
     setTwitterSources([])
-    setSelectedVertical(genVertical)
     setStreaming(true)
 
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vertical: genVertical }),
-    })
+    const res = await fetch('/api/generate', { method: 'POST' })
     if (!res.body) return
 
     const reader = res.body.getReader()
@@ -245,9 +182,8 @@ export default function Home() {
     setGenerating(false)
     setHistoryKey((k) => k + 1)
 
-    // Look up the just-created report for this vertical specifically, regardless
-    // of what the "browse history" filter is currently set to.
-    const listRes = await fetch(`/api/reports?vertical=${encodeURIComponent(genVertical)}`)
+    // Look up the just-created report
+    const listRes = await fetch('/api/reports')
     const reports = await listRes.json()
     if (reports[0]) {
       setSelectedId(reports[0].id)
@@ -283,7 +219,7 @@ export default function Home() {
         if (i > 0) pdf.addPage()
         pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin - i * contentH, imgW, imgH)
       }
-      pdf.save(`IntelliRadar-${new Date().toISOString().slice(0, 10)}.pdf`)
+      pdf.save(`AIReadySchool-${new Date().toISOString().slice(0, 10)}.pdf`)
     } finally {
       document.body.removeChild(clone)
     }
@@ -347,9 +283,9 @@ export default function Home() {
         {/* Brand */}
         <div className="p-4 border-b border-[#E3E0D8]">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-lg font-bold text-[#D4622A]">IntelliRadar</span>
+            <span className="text-lg font-bold text-[#D4622A]">AI Ready School</span>
           </div>
-          <p className="text-xs text-[#9CA3AF]">Intellina AI Daily Intelligence</p>
+          <p className="text-xs text-[#9CA3AF]">K-12 AI Intelligence</p>
         </div>
 
         {/* Tab nav */}
@@ -374,14 +310,6 @@ export default function Home() {
         {tab === 'reports' && (
           <>
             <div className="p-3 border-b border-[#E3E0D8] space-y-2">
-              <select
-                value={genVertical}
-                onChange={(e) => setGenVertical(e.target.value as Vertical)}
-                disabled={generating}
-                className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-2.5 py-2 disabled:opacity-50"
-              >
-                {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
-              </select>
               <button
                 onClick={generateReport}
                 disabled={generating}
@@ -400,20 +328,11 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between mb-2 px-1 gap-2">
                 <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
-                <select
-                  value={historyFilter}
-                  onChange={(e) => setHistoryFilter(e.target.value as HistoryFilter)}
-                  className="text-xs bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-1.5 py-1"
-                >
-                  <option value="All Verticals">All</option>
-                  {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
-                </select>
               </div>
               <ReportHistory
                 key={historyKey}
                 selectedId={selectedId}
                 onSelect={loadReport}
-                filterVertical={historyFilter}
               />
             </div>
           </>
@@ -462,7 +381,7 @@ export default function Home() {
               <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
-          <span className="text-base font-bold text-[#D4622A]">IntelliRadar</span>
+          <span className="text-base font-bold text-[#D4622A]">AI Ready School</span>
           <div className="w-8" />
         </div>
         {tab === 'reports' && (
@@ -471,14 +390,6 @@ export default function Home() {
             {showReportList && (
               <div className="md:hidden flex flex-col h-full bg-[#F5F3EE]">
                 <div className="p-3 border-b border-[#E3E0D8] space-y-2">
-                  <select
-                    value={genVertical}
-                    onChange={(e) => setGenVertical(e.target.value as Vertical)}
-                    disabled={generating}
-                    className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-2.5 py-2 disabled:opacity-50"
-                  >
-                    {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
-                  </select>
                   <button
                     onClick={() => { generateReport(); setShowReportList(false) }}
                     disabled={generating}
@@ -492,16 +403,8 @@ export default function Home() {
                 <div className="flex-1 overflow-y-auto p-3">
                   <div className="flex items-center justify-between mb-2 px-1 gap-2">
                     <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
-                    <select
-                      value={historyFilter}
-                      onChange={(e) => setHistoryFilter(e.target.value as HistoryFilter)}
-                      className="text-xs bg-white border border-[#E3E0D8] rounded-lg px-1.5 py-1"
-                    >
-                      <option value="All Verticals">All</option>
-                      {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>)}
-                    </select>
                   </div>
-                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} filterVertical={historyFilter} />
+                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} />
                 </div>
               </div>
             )}
@@ -539,9 +442,6 @@ export default function Home() {
                           })}
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs bg-white text-[#6B6B6B] px-2 py-1 rounded-full border border-[#E3E0D8]">
-                        {selectedVertical === 'All' ? 'All Pillars' : selectedVertical}
-                      </span>
                       {isToday && (
                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] px-2 py-1 rounded-full border border-[#F5D3BC]">
                           Today
@@ -591,22 +491,15 @@ export default function Home() {
                   </div>
                 )}
                 <div ref={reportRef}>
-                  <ReportDisplay content={content} streaming={streaming} onCourseCreated={() => setTab('courses')} twitterSources={twitterSources} />
+                  <ReportDisplay content={content} streaming={streaming} twitterSources={twitterSources} />
                 </div>
-                {selectedId && !streaming && (
-                  <ContentSuggestions
-                    key={selectedId}
-                    reportId={selectedId}
-                    onNavigateToLab={() => setTab('contentlab')}
-                  />
-                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <div className="text-5xl mb-4">&#128225;</div>
                 <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2">No report yet</h2>
                 <p className="text-[#9CA3AF] text-sm max-w-xs">
-                  Click &quot;Generate Report&quot; to fetch the latest AI intelligence for Intellina.
+                  Click &quot;Generate Report&quot; to fetch the latest K-12 AI intelligence for AI Ready School.
                 </p>
               </div>
             )}
@@ -618,15 +511,9 @@ export default function Home() {
         {tab === 'tasks' && <TasksSection />}
         {tab === 'notes' && <NotesSection />}
         {tab === 'dashboard' && <DashboardSection onNavigate={handleTabChange} onGenerateReport={generateReport} generating={generating} />}
-        {tab === 'courses' && <CoursesSection />}
-        {tab === 'contentlab' && <ContentLabSection />}
-        {tab === 'graph' && <KnowledgeGraphSection />}
         {tab === 'mirror' && <MirrorSection />}
         {tab === 'goals' && <GoalsSection />}
-        {tab === 'meetings' && <MeetingsSection />}
         {tab === 'research' && <ResearchSection onContextChange={setResearchContext} />}
-        {tab === 'podcast' && <PodcastSection />}
-        {tab === 'competitive' && <CompetitiveIntelSection />}
         {tab !== 'chat' && (
           <FloatingChat
             pageContext={
@@ -634,14 +521,9 @@ export default function Home() {
               : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
               : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
               : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — signals, thoughts, and coaching assessment.'
-              : tab === 'goals' ? 'goals. Viewing Goals — measurable per-pillar goals, their plans, and everything aligned to them.'
-              : tab === 'meetings' ? 'meetings. Viewing Meetings — logged meeting notes, attendees, and AI-suggested action items.'
+              : tab === 'goals' ? 'goals. Viewing Goals — measurable K-12 goals, their plans, and everything aligned to them.'
               : tab === 'research' ? researchContext
               : tab === 'dashboard' ? 'dashboard. Viewing the main Dashboard overview.'
-              : tab === 'courses' ? 'courses. Viewing the Presentations section.'
-              : tab === 'contentlab' ? 'contentlab. Viewing the Content Lab.'
-              : tab === 'graph' ? 'graph. Viewing the Knowledge Graph.'
-              : tab === 'podcast' ? 'podcast. Viewing The AI Sense podcast research space with MARS framework episode prep.'
               : tab === 'settings' ? 'settings. Viewing Settings.'
               : 'dashboard'
             }
@@ -680,19 +562,6 @@ export default function Home() {
                 </svg>
                 Sources
               </button>
-              <button
-                onClick={() => setSettingsTab('people')}
-                className={`w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
-                  settingsTab === 'people'
-                    ? 'bg-white text-[#1A1A1A] font-medium shadow-sm border border-[#E3E0D8]'
-                    : 'text-[#6B6B6B] hover:bg-[#ECEAE3] hover:text-[#1A1A1A]'
-                }`}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                </svg>
-                People
-              </button>
               {userEmail === ADMIN_EMAIL && (
                 <button
                   onClick={() => setSettingsTab('users')}
@@ -713,7 +582,6 @@ export default function Home() {
             <div className="flex-1 overflow-hidden flex flex-col">
               {settingsTab === 'context' && <ContextSection />}
               {settingsTab === 'sources' && <SourcesSection />}
-              {settingsTab === 'people' && <PeopleSettingsSection />}
               {settingsTab === 'users' && userEmail === ADMIN_EMAIL && <UserManagementSection />}
             </div>
           </div>

@@ -37,13 +37,13 @@ function stripMarkdown(md: string, maxLen = 200): string {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const report = await getReport(id)
-  if (!report) return { title: 'Report not found — IntelliRadar' }
+  if (!report) return { title: 'Report not found — AI Ready School' }
 
   const date = new Date(report.created_at).toLocaleDateString('en-US', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
   const description = stripMarkdown(report.content)
-  const title = `IntelliRadar Daily Report — ${date}`
+  const title = `AI Ready School Daily Report — ${date}`
 
   return {
     title,
@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: 'article',
-      siteName: 'IntelliRadar · Intellina AI',
+      siteName: 'AI Ready School · Intellina AI',
       publishedTime: report.created_at,
     },
     twitter: {
@@ -78,7 +78,7 @@ export default async function ShareReportPage({ params }: Props) {
       <header className="bg-white border-b border-[#E3E0D8] sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-base font-bold text-[#D4622A]">IntelliRadar</span>
+            <span className="text-base font-bold text-[#D4622A]">AI Ready School</span>
             <span className="text-[#E3E0D8]">·</span>
             <span className="text-sm text-[#6B6B6B]">Daily Intelligence Report</span>
           </div>
@@ -88,7 +88,7 @@ export default async function ShareReportPage({ params }: Props) {
 
       <main className="max-w-4xl mx-auto px-6 py-10">
         <p className="text-xs text-[#9CA3AF] mb-8">{formatted}</p>
-        <ContextMenuWrapper showCourse={false}>
+        <ContextMenuWrapper>
         <div
           id="share-report-content"
           className="prose prose-sm max-w-none
@@ -135,7 +135,7 @@ export default async function ShareReportPage({ params }: Props) {
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">
-        <p className="text-center text-xs text-[#C4BFB5]">Powered by IntelliRadar · Intellina AI</p>
+        <p className="text-center text-xs text-[#C4BFB5]">Powered by AI Ready School · Intellina AI</p>
       </footer>
     </div>
   )

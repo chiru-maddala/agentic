@@ -8,7 +8,7 @@ export const maxDuration = 300
 async function fetchUrlContent(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IntelliRadar/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AI Ready School/1.0)' },
       signal: AbortSignal.timeout(15000),
     })
     const html = await res.text()
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     textContent += `--- END WEB SOURCES ---\n\n`
   }
 
-  textContent += `Analyze all provided materials and generate a structured research intelligence report in the same format as the Daily Research Report. Extract key signals, insights, and recommended actions relevant to Intellina's three pillars (Learning AI, Enterprise AI, AI Infrastructure). Be specific and cite the source material directly.`
+  textContent += `Analyze all provided materials and generate a structured research intelligence report in the same format as the Daily Research Report. Extract key signals, insights, and recommended actions relevant to K-12 education and AI Ready School. Be specific and cite the source material directly.`
 
   const userContent: Anthropic.ContentBlockParam[] = [
     ...pdfBlocks,
@@ -126,7 +126,6 @@ export async function POST(request: Request) {
             type: 'research_done',
             category: categoryForType('research_done'),
             content: `Ran research: "${title}"`,
-            pillar: null,
             metadata: { source_count: sources.length },
           })).catch(() => {})
         }

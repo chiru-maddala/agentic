@@ -66,8 +66,8 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-indigo-400">IntelliRadar</h1>
-          <p className="text-gray-500 text-sm mt-1">Intellina AI Daily Intelligence</p>
+          <h1 className="text-2xl font-bold text-indigo-400">AI Ready School</h1>
+          <p className="text-gray-500 text-sm mt-1">K-12 AI Intelligence</p>
         </div>
 
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">

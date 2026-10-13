@@ -5,24 +5,14 @@ import { useCallback, useEffect, useState } from 'react'
 type TrackedHandle = {
   id: string
   handle: string
-  pillar: string | null
   active: boolean
   created_at: string
-}
-
-const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-
-const PILLAR_STYLES: Record<string, string> = {
-  'Learning AI': 'bg-[#EEF6FF] text-[#2563EB] border-[#CFE2FF]',
-  'Enterprise AI': 'bg-[#FEF3EC] text-[#D4622A] border-[#F5D3BC]',
-  'AI Infrastructure': 'bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]',
 }
 
 export default function SourcesSection() {
   const [handles, setHandles] = useState<TrackedHandle[]>([])
   const [loading, setLoading] = useState(true)
   const [newHandle, setNewHandle] = useState('')
-  const [newPillar, setNewPillar] = useState('')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,13 +37,12 @@ export default function SourcesSection() {
       const res = await fetch('/api/tracked-handles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle, pillar: newPillar || null }),
+        body: JSON.stringify({ handle }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setHandles((prev) => [data, ...prev])
       setNewHandle('')
-      setNewPillar('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add handle')
     } finally {
@@ -102,16 +91,6 @@ export default function SourcesSection() {
               placeholder="handle (e.g. sama)"
               className="flex-1 text-sm px-3 py-2 rounded-lg border border-[#E3E0D8] bg-[#FAF9F6] focus:outline-none focus:bg-white transition-colors"
             />
-            <select
-              value={newPillar}
-              onChange={(e) => setNewPillar(e.target.value)}
-              className="text-sm px-3 py-2 rounded-lg border border-[#E3E0D8] bg-[#FAF9F6] text-[#374151] focus:outline-none focus:bg-white transition-colors"
-            >
-              <option value="">No pillar</option>
-              {PILLARS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
             <button
               onClick={addHandle}
               disabled={adding || !newHandle.trim()}
@@ -138,11 +117,6 @@ export default function SourcesSection() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`text-sm text-[#1A1A1A] ${h.active ? '' : 'opacity-40'}`}>@{h.handle}</span>
-                      {h.pillar && (
-                        <span className={`text-xs border px-2 py-0.5 rounded-full flex-shrink-0 ${PILLAR_STYLES[h.pillar] ?? 'bg-[#F3F1EC] text-[#6B6B6B] border-[#E3E0D8]'}`}>
-                          {h.pillar}
-                        </span>
-                      )}
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <button

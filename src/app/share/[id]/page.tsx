@@ -28,9 +28,9 @@ function stripHtml(html: string, maxLen = 200): string {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const doc = await getTaskDoc(id)
-  if (!doc) return { title: 'Document not found — IntelliRadar' }
+  if (!doc) return { title: 'Document not found — AI Ready School' }
 
-  const title = `${doc.title} — IntelliRadar`
+  const title = `${doc.title} — AI Ready School`
   const description = stripHtml(doc.document_content ?? '')
 
   return {
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: 'article',
-      siteName: 'IntelliRadar · Intellina AI',
+      siteName: 'AI Ready School · Intellina AI',
       publishedTime: doc.created_at,
     },
     twitter: {
@@ -65,7 +65,7 @@ export default async function ShareDocPage({ params }: Props) {
       <header className="bg-white border-b border-[#E3E0D8] sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-base font-bold text-[#D4622A] flex-shrink-0">IntelliRadar</span>
+            <span className="text-base font-bold text-[#D4622A] flex-shrink-0">AI Ready School</span>
             <span className="text-[#E3E0D8] flex-shrink-0">·</span>
             <span className="text-sm text-[#6B6B6B] truncate">{doc.title}</span>
           </div>
@@ -78,7 +78,7 @@ export default async function ShareDocPage({ params }: Props) {
       <main className="max-w-3xl mx-auto px-6 py-10">
         <h1 className="text-2xl font-bold text-[#1A1A1A] mb-2">{doc.title}</h1>
         <p className="text-xs text-[#9CA3AF] mb-8">Generated {formatted}</p>
-        <ContextMenuWrapper showCourse={false}>
+        <ContextMenuWrapper>
           <div
             id="share-doc-content"
             className="prose prose-sm max-w-none
@@ -93,7 +93,7 @@ export default async function ShareDocPage({ params }: Props) {
       </main>
 
       <footer className="border-t border-[#E3E0D8] py-6 mt-10">
-        <p className="text-center text-xs text-[#C4BFB5]">Powered by IntelliRadar · Intellina AI</p>
+        <p className="text-center text-xs text-[#C4BFB5]">Powered by AI Ready School · Intellina AI</p>
       </footer>
     </div>
   )

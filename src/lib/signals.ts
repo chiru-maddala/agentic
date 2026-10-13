@@ -12,8 +12,6 @@ export const SIGNAL_TYPE_CATEGORY: Record<string, SignalCategory> = {
   task_completed: 'action',
   note_created: 'action',
   chat_insight: 'action',
-  person_added: 'action',
-  meeting_added: 'action',
   goal_progress_updated: 'action',
   goal_achievement_added: 'action',
 }

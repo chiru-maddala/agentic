@@ -16,9 +16,8 @@ type SuggestedTask = {
   urgency: 'high' | 'medium' | 'low'
 }
 
-type PillarGoal = {
+type Goal = {
   id: string
-  pillar: string
   name: string
   target_number: number | null
   target_date: string | null
@@ -34,15 +33,6 @@ type TaskRef = {
   id: string
   title: string
   status: 'todo' | 'in-progress' | 'done'
-  pillar: string
-  goal_id: string | null
-}
-
-type MeetingRef = {
-  id: string
-  title: string
-  meeting_date: string
-  pillar: string | null
   goal_id: string | null
 }
 
@@ -58,15 +48,7 @@ type Achievement = {
 
 type FormState = { name: string; target_number: string; target_date: string }
 type AchievementFormState = { title: string; location: string; notes: string; achieved_at: string }
-type GoalTab = 'plan' | 'achieved' | 'tasks' | 'meetings'
-
-const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure']
-
-const PILLAR_META: Record<string, { border: string; badge: string; icon: string; products: string }> = {
-  'Learning AI':       { border: 'border-blue-200',   badge: 'bg-blue-50 text-blue-700',   icon: '📚', products: 'Learnia · K12 Skill Center · Matrix · AutoCampus · RED AI' },
-  'Enterprise AI':     { border: 'border-violet-200', badge: 'bg-violet-50 text-violet-700', icon: '🤖', products: 'Orchea.ai' },
-  'AI Infrastructure': { border: 'border-amber-200',  badge: 'bg-amber-50 text-amber-700',  icon: '☁️', products: 'TerraNine · MATRIX' },
-}
+type GoalTab = 'plan' | 'achieved' | 'tasks'
 
 const PACING_META: Record<PacingStatus, { label: string; color: string }> = {
   'no-target':   { label: 'No target set',   color: 'text-[#9CA3AF] bg-[#F5F3EE] border-[#E3E0D8]' },
@@ -95,15 +77,13 @@ function formatDate(d: string | null) {
   return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// ─── List view: per-pillar goal cards ──────────────────────────────────────
-function GoalsListCard({ pillar, goals, onAdd, onDelete, onSelect }: {
-  pillar: string
-  goals: PillarGoal[]
-  onAdd: (pillar: string, name: string, targetNumber: string, targetDate: string) => Promise<void>
+// ─── List view: K-12 goals card ────────────────────────────────────────────
+function GoalsListCard({ goals, onAdd, onDelete, onSelect }: {
+  goals: Goal[]
+  onAdd: (name: string, targetNumber: string, targetDate: string) => Promise<void>
   onDelete: (id: string) => void
   onSelect: (id: string) => void
 }) {
-  const meta = PILLAR_META[pillar]
   const [form, setForm] = useState<FormState>({ name: '', target_number: '', target_date: '' })
   const [adding, setAdding] = useState(false)
 
@@ -111,7 +91,7 @@ function GoalsListCard({ pillar, goals, onAdd, onDelete, onSelect }: {
     if (!form.name.trim()) return
     setAdding(true)
     try {
-      await onAdd(pillar, form.name.trim(), form.target_number, form.target_date)
+      await onAdd(form.name.trim(), form.target_number, form.target_date)
       setForm({ name: '', target_number: '', target_date: '' })
     } finally {
       setAdding(false)
@@ -119,11 +99,11 @@ function GoalsListCard({ pillar, goals, onAdd, onDelete, onSelect }: {
   }
 
   return (
-    <div className={`bg-white border ${meta.border} rounded-xl overflow-hidden shadow-sm`}>
+    <div className="bg-white border border-blue-200 rounded-xl overflow-hidden shadow-sm">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-[#E3E0D8] bg-[#FAF9F6]">
-        <span className="text-base">{meta.icon}</span>
-        <span className="text-sm font-semibold text-[#1A1A1A]">{pillar}</span>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${meta.badge}`}>{meta.products}</span>
+        <span className="text-base">🎓</span>
+        <span className="text-sm font-semibold text-[#1A1A1A]">AI Ready School</span>
+        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Learnia · K12 Skill Center · Matrix</span>
       </div>
       {goals.length > 0 && (
         <div className="divide-y divide-[#F5F3EE]">
@@ -285,15 +265,13 @@ function PlanEditor({ initialContent, onSave }: { initialContent: string; onSave
 }
 
 // ─── Detail view ────────────────────────────────────────────────────────────
-function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCreated }: {
-  goal: PillarGoal
+function GoalDetailView({ goal, tasks, onBack, onGoalUpdate, onTaskCreated }: {
+  goal: Goal
   tasks: TaskRef[]
-  meetings: MeetingRef[]
   onBack: () => void
-  onGoalUpdate: (updated: PillarGoal) => void
+  onGoalUpdate: (updated: Goal) => void
   onTaskCreated: (task: TaskRef) => void
 }) {
-  const meta = PILLAR_META[goal.pillar]
   const pacing = computeGoalPacing(goal)
   const pacingMeta = PACING_META[pacing.status]
 
@@ -431,7 +409,6 @@ function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCre
         body: JSON.stringify({
           title: suggestion.title,
           description: suggestion.description,
-          pillar: goal.pillar,
           status: 'todo',
           source: 'goal_plan',
           goal_id: goal.id,
@@ -448,7 +425,6 @@ function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCre
   }
 
   const linkedTasks = tasks.filter((t) => t.goal_id === goal.id)
-  const linkedMeetings = meetings.filter((m) => m.goal_id === goal.id)
   const isSuggestionAdded = (s: SuggestedTask, i: number) =>
     addedKeys.has(`${goal.id}-${i}`) || linkedTasks.some((t) => t.title === s.title)
 
@@ -461,8 +437,8 @@ function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCre
           ← Back to Goals
         </button>
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">{meta.icon}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${meta.badge}`}>{goal.pillar}</span>
+          <span className="text-base">🎓</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">AI Ready School</span>
         </div>
         <h1 className="text-2xl font-semibold text-[#1A1A1A]">{goal.name}</h1>
       </div>
@@ -487,7 +463,6 @@ function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCre
           { key: 'plan', label: 'Plan' },
           { key: 'achieved', label: 'Achieved', count: achievements.length },
           { key: 'tasks', label: 'Tasks', count: linkedTasks.length },
-          { key: 'meetings', label: 'Meetings', count: linkedMeetings.length },
         ] as { key: GoalTab; label: string; count?: number }[]).map((tab) => (
           <button
             key={tab.key}
@@ -704,51 +679,26 @@ function GoalDetailView({ goal, tasks, meetings, onBack, onGoalUpdate, onTaskCre
           )}
         </div>
       )}
-
-      {/* Meetings */}
-      {activeTab === 'meetings' && (
-        <div className="bg-white border border-[#E3E0D8] rounded-2xl overflow-hidden shadow-sm">
-          {linkedMeetings.length === 0 ? (
-            <p className="text-xs text-[#9CA3AF] px-6 py-4">No meetings linked to this goal yet.</p>
-          ) : (
-            <div className="divide-y divide-[#F5F3EE]">
-              {linkedMeetings.map((m) => (
-                <div key={m.id} className="px-6 py-3 flex items-center gap-3">
-                  <span className="text-sm text-[#1A1A1A] flex-1">{m.title}</span>
-                  <span className="text-xs text-[#9CA3AF]">{formatDate(m.meeting_date)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function GoalsSection() {
-  const [goals, setGoals] = useState<PillarGoal[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [tasks, setTasks] = useState<TaskRef[]>([])
-  const [meetings, setMeetings] = useState<MeetingRef[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
-      const [goalsRes, tasksRes, meetingsRes] = await Promise.all([
+      const [goalsRes, tasksRes] = await Promise.all([
         fetch('/api/mirror/pillar-goals'),
         fetch('/api/tasks'),
-        fetch('/api/meetings'),
       ])
-      const [goalsData, tasksData, meetingsData] = await Promise.all([
-        goalsRes.json(),
-        tasksRes.json(),
-        meetingsRes.json(),
-      ])
+      const [goalsData, tasksData] = await Promise.all([goalsRes.json(), tasksRes.json()])
       if (Array.isArray(goalsData)) setGoals(goalsData)
       if (Array.isArray(tasksData)) setTasks(tasksData)
-      if (Array.isArray(meetingsData)) setMeetings(meetingsData)
     } finally {
       setLoading(false)
     }
@@ -756,19 +706,18 @@ export default function GoalsSection() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  const addGoal = async (pillar: string, name: string, targetNumber: string, targetDate: string) => {
+  const addGoal = async (name: string, targetNumber: string, targetDate: string) => {
     const res = await fetch('/api/mirror/pillar-goals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pillar,
         name,
         target_number: targetNumber ? Number(targetNumber) : null,
         target_date: targetDate || null,
       }),
     })
     if (res.ok) {
-      const created: PillarGoal = await res.json()
+      const created: Goal = await res.json()
       setGoals((prev) => [...prev, created])
     }
   }
@@ -779,7 +728,7 @@ export default function GoalsSection() {
     await fetch(`/api/mirror/pillar-goals/${id}`, { method: 'DELETE' })
   }
 
-  const updateGoal = (updated: PillarGoal) => {
+  const updateGoal = (updated: Goal) => {
     setGoals((prev) => prev.map((g) => (g.id === updated.id ? { ...g, ...updated } : g)))
   }
 
@@ -801,7 +750,7 @@ export default function GoalsSection() {
         <span className="text-lg">🎯</span>
         <div>
           <h1 className="text-base font-semibold text-[#1A1A1A]">Goals</h1>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">Every measurable goal, its plan, and everything aligned to it</p>
+          <p className="text-xs text-[#9CA3AF] mt-0.5">Every measurable K-12 goal, its plan, and everything aligned to it</p>
         </div>
       </div>
 
@@ -811,23 +760,18 @@ export default function GoalsSection() {
             key={selectedGoal.id}
             goal={selectedGoal}
             tasks={tasks}
-            meetings={meetings}
             onBack={() => setSelectedGoalId(null)}
             onGoalUpdate={updateGoal}
             onTaskCreated={addTask}
           />
         ) : (
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-5">
-            {PILLARS.map((pillar) => (
-              <GoalsListCard
-                key={pillar}
-                pillar={pillar}
-                goals={goals.filter((g) => g.pillar === pillar)}
-                onAdd={addGoal}
-                onDelete={deleteGoal}
-                onSelect={setSelectedGoalId}
-              />
-            ))}
+            <GoalsListCard
+              goals={goals}
+              onAdd={addGoal}
+              onDelete={deleteGoal}
+              onSelect={setSelectedGoalId}
+            />
           </div>
         )}
       </div>

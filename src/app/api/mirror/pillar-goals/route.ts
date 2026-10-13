@@ -5,7 +5,6 @@ export async function GET() {
   const { data, error } = await supabase
     .from('mirror_pillar_goals')
     .select('*')
-    .order('pillar')
     .order('created_at')
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json(data ?? [])
@@ -18,7 +17,6 @@ export async function POST(req: Request) {
   const { data, error } = await supabase
     .from('mirror_pillar_goals')
     .insert({
-      pillar: body.pillar,
       name: body.name,
       target_number: body.target_number ?? null,
       target_date: body.target_date ?? null,

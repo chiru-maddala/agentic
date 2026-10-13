@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IntelliRadar — Intellina AI Daily Intelligence",
-  description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
+  title: "AI Ready School — K-12 AI Intelligence",
+  description: "Daily K-12 AI research reports, goals, and task intelligence for AI Ready School.",
   robots: {
     index: false,
     follow: false,
@@ -24,15 +24,15 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "IntelliRadar — Intellina AI Daily Intelligence",
-    description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
-    siteName: "IntelliRadar · Intellina AI",
+    title: "AI Ready School — K-12 AI Intelligence",
+    description: "Daily K-12 AI research reports, goals, and task intelligence for AI Ready School.",
+    siteName: "AI Ready School · Intellina AI",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "IntelliRadar — Intellina AI Daily Intelligence",
-    description: "Daily AI research reports, task intelligence, and presentations for Intellina AI.",
+    title: "AI Ready School — K-12 AI Intelligence",
+    description: "Daily K-12 AI research reports, goals, and task intelligence for AI Ready School.",
   },
 };
 

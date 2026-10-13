@@ -25,8 +25,6 @@ export async function POST(req: Request) {
       status: body.status ?? 'todo',
       source: body.source ?? 'manual',
       report_id: body.report_id ?? null,
-      person_id: body.person_id ?? null,
-      meeting_id: body.meeting_id ?? null,
       goal_id: body.goal_id ?? null,
     })
     .select()
@@ -39,7 +37,6 @@ export async function POST(req: Request) {
     type: 'task_created',
     category: categoryForType('task_created'),
     content: `Created task: "${data.title}"`,
-    pillar: data.pillar ?? null,
     metadata: { task_id: data.id, source: data.source },
   })).catch(() => {})
 

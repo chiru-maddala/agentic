@@ -7,9 +7,8 @@ type Task = {
   id: string
   title: string
   description: string | null
-  pillar: string
   status: 'todo' | 'in-progress' | 'done'
-  source: 'manual' | 'report' | 'chat' | 'mirror' | 'meeting' | 'goal_plan' | 'voice'
+  source: 'manual' | 'report' | 'chat' | 'mirror' | 'goal_plan' | 'voice'
   document_content: string | null
   goal_id: string | null
   created_at: string
@@ -17,9 +16,8 @@ type Task = {
 
 type GoalRef = { id: string; name: string }
 
-type EditState = { title: string; description: string; pillar: string; goal_id: string }
+type EditState = { title: string; description: string; goal_id: string }
 
-const PILLARS = ['Learning AI', 'Enterprise AI', 'AI Infrastructure', 'General']
 const STATUSES: Task['status'][] = ['todo', 'in-progress', 'done']
 const STATUS_LABELS: Record<Task['status'], string> = {
   'todo': 'New',
@@ -34,7 +32,6 @@ const STATUS_COLORS: Record<Task['status'], string> = {
 const SOURCE_LABELS: Partial<Record<Task['source'], string>> = {
   report: 'report',
   chat: 'chat',
-  meeting: 'meeting',
   goal_plan: 'goal plan',
   voice: 'voice',
 }
@@ -158,7 +155,7 @@ function DocumentPanel({
 
       {/* Document content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <ContextMenuWrapper showCourse>
+        <ContextMenuWrapper>
           <div
             id="task-doc-panel-content"
             className="prose prose-sm max-w-none
@@ -185,11 +182,10 @@ export default function TasksSection() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [goals, setGoals] = useState<GoalRef[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', pillar: 'General', goal_id: '' })
-  const [filterPillar, setFilterPillar] = useState<string | null>(null)
+  const [form, setForm] = useState({ title: '', description: '', goal_id: '' })
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editState, setEditState] = useState<EditState>({ title: '', description: '', pillar: 'General', goal_id: '' })
+  const [editState, setEditState] = useState<EditState>({ title: '', description: '', goal_id: '' })
 
   // Panel state
   const [panelTask, setPanelTask] = useState<Task | null>(null)
@@ -218,7 +214,7 @@ export default function TasksSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, goal_id: form.goal_id || null }),
     })
-    setForm({ title: '', description: '', pillar: 'General', goal_id: '' })
+    setForm({ title: '', description: '', goal_id: '' })
     setShowForm(false)
     loadTasks()
   }
@@ -240,7 +236,7 @@ export default function TasksSection() {
 
   const startEdit = (task: Task) => {
     setEditingId(task.id)
-    setEditState({ title: task.title, description: task.description ?? '', pillar: task.pillar, goal_id: task.goal_id ?? '' })
+    setEditState({ title: task.title, description: task.description ?? '', goal_id: task.goal_id ?? '' })
   }
 
   const cancelEdit = () => { setEditingId(null) }
@@ -253,7 +249,6 @@ export default function TasksSection() {
       body: JSON.stringify({
         title: editState.title.trim(),
         description: editState.description.trim() || null,
-        pillar: editState.pillar,
         goal_id: editState.goal_id || null,
       }),
     })
@@ -324,15 +319,9 @@ export default function TasksSection() {
   }, [tasks, panelTask, streamingId])
 
   const filtered = tasks.filter((t) => {
-    if (filterPillar && t.pillar !== filterPillar) return false
     if (filterStatus && t.status !== filterStatus) return false
     return true
   })
-
-  const grouped = PILLARS.reduce((acc, pillar) => {
-    acc[pillar] = filtered.filter((t) => t.pillar === pillar)
-    return acc
-  }, {} as Record<string, Task[]>)
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -370,13 +359,6 @@ export default function TasksSection() {
                 />
                 <div className="flex items-center gap-3">
                   <select
-                    value={form.pillar}
-                    onChange={(e) => setForm({ ...form, pillar: e.target.value })}
-                    className="bg-[#FAF9F6] border border-[#E3E0D8] text-[#1A1A1A] text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
-                  >
-                    {PILLARS.map((p) => <option key={p}>{p}</option>)}
-                  </select>
-                  <select
                     value={form.goal_id}
                     onChange={(e) => setForm({ ...form, goal_id: e.target.value })}
                     className="bg-[#FAF9F6] border border-[#E3E0D8] text-[#1A1A1A] text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
@@ -392,16 +374,6 @@ export default function TasksSection() {
 
             {/* Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
-              <button
-                onClick={() => setFilterPillar(null)}
-                className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${!filterPillar ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'bg-white text-[#6B6B6B] border-[#E3E0D8] hover:border-[#D4622A] hover:text-[#D4622A]'}`}
-              >All Pillars</button>
-              {PILLARS.map((p) => (
-                <button key={p} onClick={() => setFilterPillar(filterPillar === p ? null : p)}
-                  className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${filterPillar === p ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'bg-white text-[#6B6B6B] border-[#E3E0D8] hover:border-[#D4622A] hover:text-[#D4622A]'}`}
-                >{p}</button>
-              ))}
-              <div className="w-px bg-[#E3E0D8] mx-1" />
               {STATUSES.map((s) => (
                 <button key={s} onClick={() => setFilterStatus(filterStatus === s ? null : s)}
                   className={`text-xs px-3 py-1.5 rounded-full transition-colors border ${filterStatus === s ? 'bg-[#D4622A] text-white border-[#D4622A]' : 'bg-white text-[#6B6B6B] border-[#E3E0D8] hover:border-[#D4622A] hover:text-[#D4622A]'}`}
@@ -411,20 +383,10 @@ export default function TasksSection() {
 
             {/* Task groups */}
             <div className="space-y-8">
-              {PILLARS.map((pillar) => {
-                const pillarTasks = grouped[pillar]
-                if (filterPillar && filterPillar !== pillar) return null
-                if (pillarTasks.length === 0 && filterPillar !== pillar) return null
-                return (
-                  <div key={pillar}>
-                    <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-3">
-                      {pillar} <span className="text-[#C4BFB5] font-normal normal-case">({pillarTasks.length})</span>
-                    </h2>
-                    {pillarTasks.length === 0 ? (
-                      <p className="text-xs text-[#C4BFB5] px-1">No tasks.</p>
-                    ) : (
+              {filtered.length > 0 && (
+                  <div>
                       <div className="space-y-2">
-                        {pillarTasks.map((task) => {
+                        {filtered.map((task) => {
                           const isStreaming = streamingId === task.id
                           const isActive = panelTask?.id === task.id
                           const hasDoc = !!task.document_content
@@ -450,13 +412,6 @@ export default function TasksSection() {
                                     className="w-full text-sm text-[#374151] bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30 focus:border-[#D4622A] placeholder-[#C4BFB5]"
                                   />
                                   <div className="flex items-center gap-2">
-                                    <select
-                                      value={editState.pillar}
-                                      onChange={(e) => setEditState({ ...editState, pillar: e.target.value })}
-                                      className="text-xs bg-[#FAF9F6] border border-[#E3E0D8] rounded-lg px-2.5 py-1.5 text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#D4622A]/30"
-                                    >
-                                      {PILLARS.map((p) => <option key={p}>{p}</option>)}
-                                    </select>
                                     <select
                                       value={editState.goal_id}
                                       onChange={(e) => setEditState({ ...editState, goal_id: e.target.value })}
@@ -558,10 +513,8 @@ export default function TasksSection() {
                           )
                         })}
                       </div>
-                    )}
                   </div>
-                )
-              })}
+              )}
               {filtered.length === 0 && (
                 <div className="text-center text-[#9CA3AF] text-sm py-12">No tasks yet. Click &quot;Add Task&quot; to create one.</div>
               )}
