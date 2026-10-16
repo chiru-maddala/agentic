@@ -42,6 +42,62 @@ const SIGNAL_META: Record<string, { label: string; color: string; icon: string }
   research_done:    { label: 'Research',      color: 'bg-indigo-50 text-indigo-700',      icon: '🔍' },
 }
 
+// ─── Excel export button ──────────────────────────────────────────────────────
+function ExportButton({ type, params, label }: {
+  type: 'signals' | 'thoughts'
+  params?: Record<string, string>
+  label: string
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const download = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const qs = new URLSearchParams({ type, ...params })
+      const res = await fetch(`/api/mirror/export?${qs}`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? 'Export failed')
+      }
+      const blob = await res.blob()
+      const filename = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? `mirror-${type}.xlsx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      {error && <span className="text-xs text-red-500">{error}</span>}
+      <button
+        onClick={download}
+        disabled={busy}
+        title={label}
+        className="flex items-center gap-1.5 text-xs text-[#6B6B6B] hover:text-[#1A1A1A] bg-white hover:bg-[#F5F3EE] border border-[#E3E0D8] px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+      >
+        {busy ? (
+          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        )}
+        Export to Excel
+      </button>
+    </span>
+  )
+}
+
 // ─── K-12 Status & Action Card ────────────────────────────────────────────────
 function StatusCard({ data, onAddTask }: {
   data: ActionsPayload
@@ -704,7 +760,14 @@ export default function MirrorSection() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Activity Feed</h2>
-                <span className="text-xs text-[#C4BFB5]">{filteredSignals.length} of {signals.length} signals · used in next assessment</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-[#C4BFB5]">{filteredSignals.length} of {signals.length} signals · used in next assessment</span>
+                  <ExportButton
+                    type="signals"
+                    params={signalFilter === 'all' ? undefined : { category: signalFilter }}
+                    label={signalFilter === 'all' ? 'Export all signals' : 'Export the signals in this filter'}
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-1 mb-3">
                 {([
@@ -810,7 +873,14 @@ export default function MirrorSection() {
                 <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">
                   {thoughtFilter ? `#${thoughtFilter}` : 'All Thoughts'}
                 </h2>
-                <span className="text-xs text-[#C4BFB5]">{visibleThoughts.length} · used in next assessment</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-[#C4BFB5]">{visibleThoughts.length} · used in next assessment</span>
+                  <ExportButton
+                    type="thoughts"
+                    params={thoughtFilter ? { hashtag: thoughtFilter } : undefined}
+                    label={thoughtFilter ? `Export thoughts tagged #${thoughtFilter}` : 'Export all thoughts'}
+                  />
+                </div>
               </div>
               {visibleThoughts.length === 0 ? (
                 <div className="bg-white border border-dashed border-[#E3E0D8] rounded-xl p-8 text-center">
