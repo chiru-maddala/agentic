@@ -4,25 +4,32 @@ import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 import { categoryForType } from '@/lib/signals'
 import { stripLoneSurrogates } from '@/lib/text'
+import { PILLAR_META, PILLARS, isPillar, parseReportScope, pillarsForScope, type Pillar, type ReportScope } from '@/lib/pillars'
 
 export const maxDuration = 300
 
-async function fetchTrackedHandles(): Promise<string[]> {
+// Handles with no pillar apply to every report; the rest only to their own pillar.
+async function fetchTrackedHandles(scope: ReportScope): Promise<string[]> {
   const supabase = getSupabase()
   const { data } = await supabase
     .from('tracked_handles')
-    .select('handle')
+    .select('handle, pillar')
     .eq('active', true)
 
-  return (data ?? []).map((row) => row.handle)
+  const wanted = pillarsForScope(scope)
+  return (data ?? [])
+    .filter((row) => !isPillar(row.pillar) || wanted.includes(row.pillar))
+    .map((row) => row.handle)
 }
 
-// Summarize recent reports so "avoid repeating" coverage stays current.
-async function fetchCoveredTopics(): Promise<string> {
+// Only look at recent reports for the same scope, so "avoid repeating" coverage
+// stays scoped to what that pillar's reports have already said.
+async function fetchCoveredTopics(scope: ReportScope): Promise<string> {
   const supabase = getSupabase()
   const { data } = await supabase
     .from('reports')
     .select('content')
+    .eq('vertical', scope)
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -40,32 +47,26 @@ async function fetchCoveredTopics(): Promise<string> {
 }
 
 // ─── Cross-module signal extraction ────────────────────────────────────────
-// After each report is saved, parse per-section insights and push them into
-// mirror_signals so the Strategic Mirror Coach has granular context.
+// After each report is saved, parse per-topic insights and push them into
+// mirror_signals, tagged with their pillar, so the Strategic Mirror Coach has
+// granular context.
 
-const SECTION_PATTERNS: RegExp[][] = [
-  [/🎓.*?Student & Teacher AI/i, /Student & Teacher AI/i],
-  [/🏫.*?School Operations/i, /School Operations & Leadership/i],
-  [/🧪.*?Skills, Programs/i, /Skills, Programs & Careers/i],
-  [/🛡️.*?Safety, Privacy/i, /Safety, Privacy & Policy/i],
-]
-
-function extractSection(content: string, sectionPatterns: RegExp[]): string {
-  for (const pattern of sectionPatterns) {
-    const match = content.search(pattern)
-    if (match === -1) continue
-    // Grab text from section start up to next ## heading
-    const slice = content.slice(match)
-    const end = slice.search(/\n#{1,2} /m)
-    return end === -1 ? slice : slice.slice(0, end)
-  }
-  return ''
+// Grab the text under a `##`/`###` heading that mentions `label`, up to the next heading.
+function extractSection(content: string, label: string): string {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = content.search(new RegExp(`^#{2,4}\\s.*${escaped}`, 'im'))
+  if (match === -1) return ''
+  const slice = content.slice(match)
+  const firstNewline = slice.indexOf('\n')
+  if (firstNewline === -1) return ''
+  const end = slice.slice(firstNewline).search(/\n#{1,4}\s/)
+  return end === -1 ? slice : slice.slice(0, firstNewline + end)
 }
 
 function extractBulletInsights(sectionText: string, maxItems = 4): string[] {
   return sectionText
     .split('\n')
-    .filter((l) => /^[-*•]\s/.test(l.trim()))
+    .filter((l) => /^[-*•]\s/.test(l)) // top-level bullets only; sub-bullets are "why it matters" / actions
     .map((l) => l.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim())
     .filter((l) => l.length > 20) // skip trivially short fragments
     .slice(0, maxItems)
@@ -75,12 +76,14 @@ async function extractAndInsertSignals(
   content: string,
   reportId: string,
   date: string,
+  scope: ReportScope,
 ): Promise<void> {
   const supabase = getSupabase()
   const signals: {
     type: string
     category: ReturnType<typeof categoryForType>
     content: string
+    pillar: Pillar | null
     metadata: Record<string, unknown>
   }[] = []
 
@@ -88,22 +91,24 @@ async function extractAndInsertSignals(
   signals.push({
     type: 'report_generated',
     category: categoryForType('report_generated'),
-    content: `Daily intelligence report generated for ${date}`,
-    metadata: { report_id: reportId, date },
+    content: `Daily intelligence report generated for ${date}${scope === 'All' ? '' : ` (${scope})`}`,
+    pillar: scope === 'All' ? null : scope,
+    metadata: { report_id: reportId, date, scope },
   })
 
-  // Per-section insight signals
-  for (const patterns of SECTION_PATTERNS) {
-    const section = extractSection(content, patterns)
-    if (!section) continue
-    const insights = extractBulletInsights(section)
-    for (const insight of insights) {
-      signals.push({
-        type: 'report_insight',
-        category: categoryForType('report_insight'),
-        content: insight,
-        metadata: { report_id: reportId, date },
-      })
+  // Per-topic insight signals, tagged with the pillar the topic belongs to
+  for (const pillar of pillarsForScope(scope)) {
+    for (const topic of PILLAR_META[pillar].topics) {
+      const insights = extractBulletInsights(extractSection(content, topic.label))
+      for (const insight of insights) {
+        signals.push({
+          type: 'report_insight',
+          category: categoryForType('report_insight'),
+          content: insight,
+          pillar,
+          metadata: { report_id: reportId, date, topic: topic.label },
+        })
+      }
     }
   }
 
@@ -116,7 +121,8 @@ async function extractAndInsertSignals(
         type: 'report_strategic',
         category: categoryForType('report_strategic'),
         content: text,
-        metadata: { report_id: reportId, date },
+        pillar: scope === 'All' ? null : scope,
+        metadata: { report_id: reportId, date, scope },
       })
     }
   }
@@ -126,19 +132,33 @@ async function extractAndInsertSignals(
   }
 }
 
+// Priority Actions in a combined report are prefixed "[AI Education]" or
+// "[Education with AI]"; a single-pillar report's actions all belong to that pillar.
+function parseActionPillar(line: string, scope: ReportScope): { title: string; pillar: Pillar | 'General' } {
+  const text = line.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim()
+  const tagged = text.match(/^\[([^\]]+)\]\s*/)
+  if (tagged && PILLARS.includes(tagged[1] as Pillar)) {
+    return { title: text.slice(tagged[0].length).slice(0, 200), pillar: tagged[1] as Pillar }
+  }
+  return { title: text.slice(0, 200), pillar: scope === 'All' ? 'General' : scope }
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 
-export async function POST() {
+export async function POST(req: Request) {
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
-  const coveredTopics = await fetchCoveredTopics().catch(() => '')
-  const trackedHandles = await fetchTrackedHandles().catch(() => [])
+  const body = await req.json().catch(() => ({}))
+  const scope = parseReportScope((body as { scope?: unknown })?.scope)
+
+  const coveredTopics = await fetchCoveredTopics(scope).catch(() => '')
+  const trackedHandles = await fetchTrackedHandles(scope).catch(() => [])
 
   let tweets: string
   let twitterSources: TwitterSource[] = []
   try {
-    const queries = await generateSearchQueries(coveredTopics).catch(() => null)
+    const queries = await generateSearchQueries(coveredTopics, scope).catch(() => null)
     const result = await fetchRecentTweets(queries ?? undefined, trackedHandles)
     tweets = result.text
     twitterSources = result.sources
@@ -155,12 +175,13 @@ export async function POST() {
       try {
         const anthropicStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
-          system: stripLoneSurrogates(buildSystemPrompt()),
+          // A combined report covers both pillars, so it gets more room.
+          max_tokens: scope === 'All' ? 10000 : 8000,
+          system: stripLoneSurrogates(buildSystemPrompt(scope)),
           messages: [
             {
               role: 'user',
-              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined)),
+              content: stripLoneSurrogates(buildUserPrompt(tweets, today, coveredTopics || undefined, scope)),
             },
           ],
         })
@@ -179,20 +200,20 @@ export async function POST() {
         if (fullContent) {
           const { data: report } = await supabase
             .from('reports')
-            .insert({ date: today, content: fullContent, sources: twitterSources })
+            .insert({ date: today, content: fullContent, sources: twitterSources, vertical: scope })
             .select()
             .single()
 
           // Auto-extract tasks from Priority Actions section
           if (report) {
             // Auto-signal capture: extract per-section insights and inject into mirror_signals
-            void extractAndInsertSignals(fullContent, report.id, today).catch(() => {})
+            void extractAndInsertSignals(fullContent, report.id, today, scope).catch(() => {})
             const actionsMatch = fullContent.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)
             if (actionsMatch) {
               const lines = actionsMatch[0].split('\n').filter((l) => /^[-*•]\s/.test(l.trim()))
               const taskInserts = lines.slice(0, 10).map((line) => {
-                const title = line.replace(/^[-*•]\s*/, '').trim().slice(0, 200)
-                return { title, pillar: 'General', source: 'report', report_id: report.id }
+                const { title, pillar } = parseActionPillar(line, scope)
+                return { title, pillar, source: 'report', report_id: report.id }
               })
               if (taskInserts.length > 0) {
                 await supabase.from('tasks').insert(taskInserts)

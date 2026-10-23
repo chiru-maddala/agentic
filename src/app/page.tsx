@@ -20,6 +20,7 @@ const FloatingChat = dynamic(() => import('@/components/FloatingChat'), { ssr: f
 const VoiceCapture = dynamic(() => import('@/components/VoiceCapture'), { ssr: false })
 const GoalsSection = dynamic(() => import('@/components/GoalsSection'), { ssr: false })
 import { createClient } from '@/lib/supabase-browser'
+import { REPORT_SCOPES, SCOPE_BADGE, SCOPE_LABELS, isReportScope, type ReportScope } from '@/lib/pillars'
 
 type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'research' | 'mirror' | 'goals'
 type SettingsTab = 'context' | 'sources' | 'users'
@@ -79,6 +80,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'research', label: 'Research' },
 ]
 
+const GENERATE_LABELS: Record<ReportScope, string> = {
+  All: 'Both pillars (combined)',
+  'AI Education': 'AI Education',
+  'Education with AI': 'Education with AI',
+}
+type HistoryFilter = ReportScope | 'any'
+
 const VALID_TABS = new Set<Tab | 'settings'>([...TABS.map((t) => t.id), 'settings'])
 
 // useLayoutEffect on the client (runs before paint), useEffect on the server
@@ -93,6 +101,9 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedCreatedAt, setSelectedCreatedAt] = useState<string | null>(null)
+  const [selectedScope, setSelectedScope] = useState<ReportScope>('All')
+  const [genScope, setGenScope] = useState<ReportScope>('All')
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('any')
   const [content, setContent] = useState<string>('')
   const [twitterSources, setTwitterSources] = useState<TwitterSource[]>([])
   const [streaming, setStreaming] = useState(false)
@@ -156,17 +167,26 @@ export default function Home() {
     const data = await res.json()
     setContent(data.content ?? '')
     setTwitterSources(data.sources ?? [])
+    setSelectedScope(isReportScope(data.vertical) ? data.vertical : 'All')
   }, [])
 
-  const generateReport = async () => {
+  // `scopeOverride` lets the dashboard generate a specific pillar's report; anything
+  // that isn't a valid scope (e.g. a click event) falls back to the sidebar picker.
+  const generateReport = async (scopeOverride?: unknown) => {
+    const scope = isReportScope(scopeOverride) ? scopeOverride : genScope
     setGenerating(true)
     setSelectedId(null)
     setSelectedDate(null)
     setContent('')
     setTwitterSources([])
+    setSelectedScope(scope)
     setStreaming(true)
 
-    const res = await fetch('/api/generate', { method: 'POST' })
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope }),
+    })
     if (!res.body) return
 
     const reader = res.body.getReader()
@@ -182,8 +202,8 @@ export default function Home() {
     setGenerating(false)
     setHistoryKey((k) => k + 1)
 
-    // Look up the just-created report
-    const listRes = await fetch('/api/reports')
+    // Look up the just-created report for this scope, regardless of the history filter
+    const listRes = await fetch(`/api/reports?vertical=${encodeURIComponent(scope)}`)
     const reports = await listRes.json()
     if (reports[0]) {
       setSelectedId(reports[0].id)
@@ -250,6 +270,30 @@ export default function Home() {
   const today = new Date().toISOString().split('T')[0]
   const isToday = selectedDate === today
 
+  const scopePicker = (
+    <select
+      value={genScope}
+      onChange={(e) => setGenScope(e.target.value as ReportScope)}
+      disabled={generating}
+      aria-label="Report scope"
+      className="w-full text-sm bg-white border border-[#E3E0D8] rounded-lg px-2.5 py-2 disabled:opacity-50"
+    >
+      {REPORT_SCOPES.map((v) => <option key={v} value={v}>{GENERATE_LABELS[v]}</option>)}
+    </select>
+  )
+
+  const historyFilterPicker = (
+    <select
+      value={historyFilter}
+      onChange={(e) => setHistoryFilter(e.target.value as HistoryFilter)}
+      aria-label="Filter report history"
+      className="text-xs bg-white border border-[#E3E0D8] rounded-lg px-1.5 py-1"
+    >
+      <option value="any">All reports</option>
+      {REPORT_SCOPES.map((v) => <option key={v} value={v}>{SCOPE_LABELS[v]}</option>)}
+    </select>
+  )
+
   const handleTabChange = (newTab: Tab | 'settings') => {
     setTab(newTab)
     setSidebarOpen(false)
@@ -310,8 +354,9 @@ export default function Home() {
         {tab === 'reports' && (
           <>
             <div className="p-3 border-b border-[#E3E0D8] space-y-2">
+              {scopePicker}
               <button
-                onClick={generateReport}
+                onClick={() => generateReport()}
                 disabled={generating}
                 className="w-full bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
@@ -328,11 +373,13 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between mb-2 px-1 gap-2">
                 <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
+                {historyFilterPicker}
               </div>
               <ReportHistory
                 key={historyKey}
                 selectedId={selectedId}
                 onSelect={loadReport}
+                filterScope={historyFilter}
               />
             </div>
           </>
@@ -390,6 +437,7 @@ export default function Home() {
             {showReportList && (
               <div className="md:hidden flex flex-col h-full bg-[#F5F3EE]">
                 <div className="p-3 border-b border-[#E3E0D8] space-y-2">
+                  {scopePicker}
                   <button
                     onClick={() => { generateReport(); setShowReportList(false) }}
                     disabled={generating}
@@ -403,8 +451,9 @@ export default function Home() {
                 <div className="flex-1 overflow-y-auto p-3">
                   <div className="flex items-center justify-between mb-2 px-1 gap-2">
                     <p className="text-xs text-[#9CA3AF] uppercase tracking-wider">History</p>
+                    {historyFilterPicker}
                   </div>
-                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} />
+                  <ReportHistory key={historyKey} selectedId={selectedId} onSelect={loadReport} filterScope={historyFilter} />
                 </div>
               </div>
             )}
@@ -442,6 +491,9 @@ export default function Home() {
                           })}
                     </span>
                     <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${SCOPE_BADGE[selectedScope]}`}>
+                        {SCOPE_LABELS[selectedScope]}
+                      </span>
                       {isToday && (
                         <span className="text-xs bg-[#FEF3EC] text-[#D4622A] px-2 py-1 rounded-full border border-[#F5D3BC]">
                           Today
@@ -499,7 +551,7 @@ export default function Home() {
                 <div className="text-5xl mb-4">&#128225;</div>
                 <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2">No report yet</h2>
                 <p className="text-[#9CA3AF] text-sm max-w-xs">
-                  Click &quot;Generate Report&quot; to fetch the latest K-12 AI intelligence for AI Ready School.
+                  Pick a pillar and click &quot;Generate Report&quot; to fetch the latest intelligence on AI Education and Education with AI.
                 </p>
               </div>
             )}
@@ -510,7 +562,7 @@ export default function Home() {
         {tab === 'chat' && <ChatSection />}
         {tab === 'tasks' && <TasksSection />}
         {tab === 'notes' && <NotesSection />}
-        {tab === 'dashboard' && <DashboardSection onNavigate={handleTabChange} onGenerateReport={generateReport} generating={generating} />}
+        {tab === 'dashboard' && <DashboardSection onNavigate={handleTabChange} onGenerateReport={(scope) => generateReport(scope)} generating={generating} />}
         {tab === 'mirror' && <MirrorSection />}
         {tab === 'goals' && <GoalsSection />}
         {tab === 'research' && <ResearchSection onContextChange={setResearchContext} />}

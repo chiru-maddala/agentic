@@ -1,4 +1,5 @@
 import { getSupabase } from '@/lib/supabase'
+import { isPillar } from '@/lib/pillars'
 
 export async function GET() {
   const supabase = getSupabase()
@@ -15,12 +16,14 @@ export async function POST(req: Request) {
   const supabase = getSupabase()
   const body = await req.json()
   const handle = String(body.handle ?? '').trim().replace(/^@/, '')
+  // null = applies to both pillars
+  const pillar = isPillar(body.pillar) ? body.pillar : null
 
   if (!handle) return Response.json({ error: 'Handle is required' }, { status: 400 })
 
   const { data, error } = await supabase
     .from('tracked_handles')
-    .insert({ handle })
+    .insert({ handle, pillar })
     .select()
     .single()
 

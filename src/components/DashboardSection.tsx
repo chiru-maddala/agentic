@@ -1,19 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PILLARS, PILLAR_META, isPillar, type ReportScope } from '@/lib/pillars'
 
 type Task = {
   id: string
   title: string
+  pillar: string | null
   status: 'todo' | 'in-progress' | 'done'
   source: 'manual' | 'report' | 'chat'
   created_at: string
 }
 
-type Report = { id: string; date: string; created_at: string; content: string }
+type Report = { id: string; date: string; created_at: string; vertical?: string; content?: string }
 type Note = { id: string; title: string; updated_at: string }
-
-const TASK_COLORS = { bg: 'bg-blue-50', bar: 'bg-blue-400', badge: 'bg-blue-100 text-blue-700', text: 'text-blue-600' }
 
 const STATUS_COLORS: Record<Task['status'], string> = {
   'todo': 'bg-[#C4BFB5]',
@@ -39,7 +39,7 @@ function greeting(date: Date) {
 
 type Props = {
   onNavigate: (tab: 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'research' | 'goals' | 'mirror' | 'settings') => void
-  onGenerateReport: () => void
+  onGenerateReport: (scope: ReportScope) => void
   generating: boolean
 }
 
@@ -67,6 +67,8 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
   const inProgress = tasks.filter((t) => t.status === 'in-progress').length
   const todo = tasks.filter((t) => t.status === 'todo').length
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
+
+  const unassigned = tasks.filter((t) => !isPillar(t.pillar)).length
 
   const latestReport = reports[0] ?? null
   const reportSnippet = latestReport?.content
@@ -101,14 +103,15 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={onGenerateReport}
+              onClick={() => onGenerateReport('All')}
               disabled={generating}
+              title="Generate one report covering both pillars"
               className="flex items-center gap-1.5 bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
             >
               {generating ? (
                 <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating…</>
               ) : (
-                <>⚡ Generate Report</>
+                <>⚡ Generate Both Pillars</>
               )}
             </button>
             <button
@@ -160,54 +163,89 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Task card — 2/3 width */}
+          {/* Pillar cards — 2/3 width */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">AI Ready School</h2>
-            {[0].map((card) => {
-              const pt = tasks
+            <h2 className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider">Pillars</h2>
+            {PILLARS.map((pillar) => {
+              const meta = PILLAR_META[pillar]
+              const pt = tasks.filter((t) => t.pillar === pillar)
               const pd = pt.filter((t) => t.status === 'done').length
-              const pip = pt.filter((t) => t.status === 'in-progress')
-              const ptodo = pt.filter((t) => t.status === 'todo')
+              const open = [...pt.filter((t) => t.status === 'in-progress'), ...pt.filter((t) => t.status === 'todo')]
               const ppct = pt.length > 0 ? Math.round((pd / pt.length) * 100) : 0
-              const colors = TASK_COLORS
+              const own = reports.find((r) => r.vertical === pillar)
+              const combined = reports.find((r) => r.vertical === 'All')
+              const latest = own ?? combined
 
               return (
-                <button
-                  key={card}
-                  onClick={() => onNavigate('tasks')}
-                  className={`w-full text-left bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm hover:shadow-md hover:border-[#C4BFB5] transition-all group`}
+                <div
+                  key={pillar}
+                  className="bg-white border border-[#E3E0D8] rounded-xl p-4 shadow-sm"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">🎓</span>
-                    <span className="text-sm font-semibold text-[#1A1A1A]">Tasks</span>
-                    <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${colors.badge}`}>{ppct}%</span>
-                    <span className="text-xs text-[#9CA3AF]">{pt.length} tasks</span>
-                    <svg className="w-4 h-4 text-[#C4BFB5] group-hover:text-[#6B6B6B] transition-colors ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="text-2xl leading-none">{meta.icon}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-[#1A1A1A]">{pillar}</div>
+                      <div className="text-xs text-[#9CA3AF]">{meta.tagline}</div>
+                    </div>
+                    <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${meta.badge}`}>{ppct}%</span>
+                    <span className="text-xs text-[#9CA3AF] mt-0.5">{pt.length} tasks</span>
                   </div>
+
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {meta.topics.map((t) => (
+                      <span key={t.label} title={t.description} className="text-[11px] text-[#6B6B6B] bg-[#F5F3EE] border border-[#E3E0D8] rounded-full px-2 py-0.5">
+                        {t.icon} {t.label}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-3 text-xs">
+                    <span className="text-[#9CA3AF]">Latest report:</span>
+                    {latest ? (
+                      <button onClick={() => onNavigate('reports')} className="text-[#D4622A] hover:underline">
+                        {new Date(latest.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {!own && ' (combined)'}
+                      </button>
+                    ) : (
+                      <span className="text-[#C4BFB5]">none yet</span>
+                    )}
+                    <button
+                      onClick={() => onGenerateReport(pillar)}
+                      disabled={generating}
+                      className="ml-auto text-xs font-medium px-2.5 py-1 rounded-lg border border-[#E3E0D8] text-[#1A1A1A] hover:bg-[#F5F3EE] disabled:opacity-50 transition-colors"
+                    >
+                      {generating ? 'Generating…' : '⚡ Generate'}
+                    </button>
+                  </div>
+
                   {pt.length > 0 ? (
-                    <>
+                    <button onClick={() => onNavigate('tasks')} className="w-full text-left group">
                       <div className="h-1.5 bg-[#F5F3EE] rounded-full overflow-hidden mb-3">
-                        <div className={`h-full ${colors.bar} rounded-full transition-all duration-500`} style={{ width: `${ppct}%` }} />
+                        <div className={`h-full ${meta.bar} rounded-full transition-all duration-500`} style={{ width: `${ppct}%` }} />
                       </div>
-                      {/* Show in-progress first, then todo */}
                       <div className="space-y-1.5">
-                        {[...pip, ...ptodo].slice(0, 3).map((t) => (
+                        {open.slice(0, 3).map((t) => (
                           <div key={t.id} className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_COLORS[t.status]}`} />
                             <span className="text-xs text-[#6B6B6B] truncate">{t.title}</span>
                           </div>
                         ))}
-                        {pt.length > 3 && (
-                          <p className="text-xs text-[#C4BFB5] pl-3.5">+{pt.length - 3} more</p>
+                        {open.length > 3 && (
+                          <p className="text-xs text-[#C4BFB5] pl-3.5">+{open.length - 3} more</p>
                         )}
                       </div>
-                    </>
+                    </button>
                   ) : (
-                    <p className="text-xs text-[#C4BFB5]">No tasks yet — generate a report to get started.</p>
+                    <p className="text-xs text-[#C4BFB5]">No tasks yet — generate a {pillar} report to get started.</p>
                   )}
-                </button>
+                </div>
               )
             })}
+            {unassigned > 0 && (
+              <button onClick={() => onNavigate('tasks')} className="text-xs text-[#9CA3AF] hover:text-[#6B6B6B] transition-colors">
+                {unassigned} task{unassigned === 1 ? '' : 's'} not assigned to a pillar →
+              </button>
+            )}
           </div>
 
           {/* Right column: latest report + recent activity */}
@@ -236,7 +274,7 @@ export default function DashboardSection({ onNavigate, onGenerateReport, generat
             ) : (
               <div className="bg-white border border-dashed border-[#E3E0D8] rounded-xl p-4 text-center">
                 <p className="text-xs text-[#9CA3AF]">No reports yet.</p>
-                <button onClick={onGenerateReport} disabled={generating} className="mt-2 text-xs text-[#D4622A] hover:underline disabled:opacity-50">
+                <button onClick={() => onGenerateReport('All')} disabled={generating} className="mt-2 text-xs text-[#D4622A] hover:underline disabled:opacity-50">
                   Generate your first →
                 </button>
               </div>

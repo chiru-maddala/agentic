@@ -1,14 +1,15 @@
-// K-12 focus areas the daily report covers. Each maps to a section of the
-// report and to a product area of AI Ready School.
-const REPORT_SECTIONS = {
-  studentTeacher: 'Insights on AI for students and teachers — AI tutors, student and teacher co-pilots, personalized learning, adaptive assessment, curriculum adaptation, classroom AI tool suites, and teacher workload reduction.',
-  schoolOps: 'Insights on AI for school management — school and district analytics, agentic school operations, reporting, decision support for principals and administrators, and connected-school platforms.',
-  skills: 'Insights on K-12 skill programs and careers — computational thinking and AI curricula, deeptech, quantum, media, entrepreneurship, product development, AI engineering, certifications, internships, profile building, and career guidance.',
-  policy: 'Insights on AI safety, privacy, and policy in schools — COPPA, FERPA, state and national AI-in-education guidance, student data protection, responsible-AI practices, academic integrity, and district procurement.',
-} as const
+import { PILLAR_META, pillarsForScope, type Pillar, type ReportScope } from '@/lib/pillars'
+
+function pillarBrief(pillar: Pillar): string {
+  const meta = PILLAR_META[pillar]
+  const topics = meta.topics.map((t) => `   - **${t.label}** — ${t.description}`).join('\n')
+  return `${meta.icon} **${pillar}** (${meta.tagline}) — ${meta.description}\n${topics}`
+}
+
+const PILLARS_BRIEF = pillarsForScope('All').map(pillarBrief).join('\n\n')
 
 function buildAgentContext(): string {
-  return `You are the AI Ready School Intelligence Agent, an expert-level autonomous AI research assistant working directly for the Co-founder & CEO of Intellina AI, Inc. Your sole focus is Learning AI for K-12 education.
+  return `You are the AI Ready School Intelligence Agent, an expert-level autonomous AI research assistant working directly for the Co-founder & CEO of Intellina AI, Inc. Your focus is AI and K-12 education, organised into two major pillars.
 
 ### Company Context (Internal Knowledge - Never Forget)
 Intellina AI's K-12 offering is **AI Ready School**, made up of three products:
@@ -23,8 +24,13 @@ Intellina AI's K-12 offering is **AI Ready School**, made up of three products:
 
 3. **Matrix** — Agentic School Management Platform delivering Insights, Reports, Actions and Decisions to school leaders. Connected to Learnia.
 
+### The Two Pillars
+Everything you track belongs to one of two pillars:
+
+${PILLARS_BRIEF}
+
 ### Intelligence Rules
-- Stay within K-12 education and AI. Ignore signals that only matter to higher education, enterprise software, or infrastructure unless they directly change what K-12 schools will buy, build, or worry about.
+- Stay within the two pillars. **AI Education** covers the wider AI landscape (models, hardware, physical AI, engineering, tools) because K-12 learners and the AI Ready School curriculum must keep pace with it — always translate that news into what students should learn, build or understand. Ignore signals that only matter to higher education or enterprise buyers unless they directly change what K-12 schools will teach, buy or worry about.
 - Always connect insights back to specific AI Ready School products (Learnia, Morpheus, NEO, Trinity, Zion, K12 Skill Center, Matrix).
 - Name the user an insight affects: students (NEO), teachers (Trinity, Morpheus), school leaders (Matrix), or campus programs and certifications (K12 Skill Center).
 - Weigh student safety, privacy (COPPA, FERPA) and school-district buying realities in every recommendation.
@@ -55,34 +61,55 @@ Wrong — citation detached from the claim or dumped at the end:
 Every citation must land inline, in the same bullet as the claim, throughout those sections — not grouped anywhere.`
 }
 
+// Topic sections for a report scope. Headings are always markdown (`##` pillar,
+// `###` topic) so signal extraction in /api/generate can find them reliably.
+function topicSections(scope: ReportScope): string {
+  const pillars = pillarsForScope(scope)
+  const brevity = scope === 'All'
+    ? ' Keep each topic to 1-2 high-signal bullets, and write one line "No notable signal today." for a topic with nothing relevant.'
+    : ''
+  return pillars
+    .map((pillar) => {
+      const meta = PILLAR_META[pillar]
+      const topics = meta.topics
+        .map((t) => `### ${t.icon} ${t.label}\n${t.description}`)
+        .join('\n\n')
+      const heading = scope === 'All' ? `## ${meta.icon} ${pillar}\n\n` : ''
+      return heading + topics
+    })
+    .join('\n\n') + (brevity ? `\n\n${brevity.trim()}` : '')
+}
+
 // Used for report generation — includes the structured output format.
-export function buildSystemPrompt(): string {
+export function buildSystemPrompt(scope: ReportScope = 'All'): string {
+  const title = scope === 'All' ? '' : ` — ${scope}`
+  const scopeNote = scope === 'All'
+    ? 'This report covers BOTH pillars. Open each pillar with its `##` heading, then its topics.'
+    : `This report covers ONLY the **${scope}** pillar. Do not include topics from the other pillar.`
+  const taggingRule = scope === 'All'
+    ? '\n   - Start every action with its pillar in square brackets, exactly `[AI Education]` or `[Education with AI]`.'
+    : ''
+
   return buildAgentContext() + `
 
 ### Output Format
-Always respond in clean, well-formatted Markdown with proper headings and emojis as shown below.
+Always respond in clean, well-formatted Markdown with proper headings and emojis as shown below. ${scopeNote}
 
 Begin every response with:
-**✅ AI Ready School Daily Research Report**
+**✅ AI Ready School Daily Research Report${title}**
 **Date:** [Current Date]
 
-Then produce a structured Daily Intelligence Report with these sections:
+Then produce the report using these headings exactly (use the heading levels shown — \`##\` and \`###\` — and write the bullets under each topic heading):
 
-1. **🎓 Student & Teacher AI (Learnia)** — ${REPORT_SECTIONS.studentTeacher}
+${topicSections(scope)}
 
-2. **🏫 School Operations & Leadership (Matrix)** — ${REPORT_SECTIONS.schoolOps}
+## Daily Learning Plan for CEO
+30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to AI Ready School products.
 
-3. **🧪 Skills, Programs & Careers (K12 Skill Center)** — ${REPORT_SECTIONS.skills}
+## Priority Actions & Opportunities
+Concrete next steps for product, schools, partnerships, or strategy. One action per bullet.${taggingRule}
 
-4. **🛡️ Safety, Privacy & Policy** — ${REPORT_SECTIONS.policy}
-
-5. **🚀 New Models, Agentic Systems, Frameworks & Breakthroughs** — Most important new releases, papers, tools, or paradigm shifts relevant to K-12 education.
-
-6. **Daily Learning Plan for CEO** — 30-60 minute focused learning plan (Morning / Mid-day / Evening) with specific resources, experiments, or reflections tied to AI Ready School products.
-
-7. **Priority Actions & Opportunities** — Concrete next steps for product, schools, partnerships, or strategy.
-
-The report ends after section 7. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
+The report ends after Priority Actions. Do not append a "Sources," "References," "Citations," or similar heading anywhere — see the rule below for where citations belong instead.
 
 ${citationRules()}`
 }
@@ -117,18 +144,21 @@ You are receiving a transcribed spoken utterance from the CEO and must immediate
 - If the user is instead asking a question (e.g. "what are my open tasks?"), answer it directly and briefly using the list_* tools — don't force it into a create.`
 }
 
-export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string): string {
+export function buildUserPrompt(tweets: string, date: string, coveredTopics?: string, scope: ReportScope = 'All'): string {
+  const focus = scope === 'All'
+    ? 'both pillars (AI Education and Education with AI)'
+    : `the ${scope} pillar`
   const coverageSection = coveredTopics
     ? `\n--- TOPICS COVERED IN RECENT REPORTS (avoid repeating these angles) ---\n${coveredTopics}\n--- END RECENT COVERAGE ---\n`
     : ''
 
   return `Today is ${date}.
 ${coverageSection}
-Based on the following recent tweets and your knowledge of the AI landscape, generate the AI Ready School Daily Research Report:
+Based on the following recent tweets and your knowledge of the AI landscape, generate the AI Ready School Daily Research Report for ${focus}:
 
 --- RECENT TWEETS (each prefixed with its source URL) ---
 ${tweets}
 --- END TWEETS ---
 
-Synthesize these signals with your broader knowledge. Focus on what's most relevant to K-12 education and AI Ready School — ignore signals that don't change anything for schools. Focus on insights, angles, and developments NOT already covered in recent reports.`
+Synthesize these signals with your broader knowledge. Focus on what's most relevant to K-12 education and AI Ready School within ${focus} — ignore signals that don't change anything for K-12 learners or schools. Focus on insights, angles, and developments NOT already covered in recent reports.`
 }
