@@ -1,26 +1,39 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TwitterApi } from 'twitter-api-v2'
 import { stripLoneSurrogates } from './text'
+import { PILLARS, PILLAR_META, pillarsForScope, type Pillar, type ReportScope } from './pillars'
 
-// Always-on queries for breaking AI news — run regardless of K-12 focus
+// Always-on queries for breaking AI news — run regardless of pillar
 const BREAKING_NEWS_QUERIES = [
   'new AI model release announcement',
   'AI breakthrough trending',
 ]
 
-const FALLBACK_QUERIES = [
-  ...BREAKING_NEWS_QUERIES,
-  'AI education K-12',
-  'AI tutor personalized learning',
-  'AI teacher assistant classroom',
-  'AI school policy student privacy',
-  'AI literacy computational thinking students',
-]
+// Fallback queries per pillar, used when query generation fails.
+const FALLBACK_QUERIES: Record<Pillar, string[]> = {
+  'AI Education': [
+    'AI literacy K-12 students',
+    'AI engineering agents students learn',
+    'physical AI robotics education',
+    'AI hardware GPU edge devices schools',
+    'AI4K12 computational thinking curriculum',
+  ],
+  'Education with AI': [
+    'AI tutor personalized learning',
+    'AI teacher assistant classroom',
+    'AI school policy student privacy',
+    'AI in education platform launch',
+    'AI K-12 classroom pilot results',
+  ],
+}
 
-const K12_DESCRIPTION =
-  'K-12 AI: student and teacher AI co-pilots, personalized learning, AI assessment, school management and analytics, AI/CT/deeptech skill programs and certifications, career guidance, and AI safety, privacy and policy in schools'
+function pillarDescription(pillar: Pillar): string {
+  const meta = PILLAR_META[pillar]
+  return `${pillar} (${meta.tagline}): ${meta.topics.map((t) => t.label).join(', ')}`
+}
 
-export async function generateSearchQueries(coveredTopics: string): Promise<string[]> {
+export async function generateSearchQueries(coveredTopics: string, scope: ReportScope = 'All'): Promise<string[]> {
+  const pillars = pillarsForScope(scope)
   const client = new Anthropic()
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -30,12 +43,13 @@ export async function generateSearchQueries(coveredTopics: string): Promise<stri
         role: 'user',
         content: `You generate Twitter/X search queries for a K-12 AI education intelligence feed.
 
-The company (Intellina AI) builds AI Ready School, focused on: ${K12_DESCRIPTION}
+The company (Intellina AI) builds AI Ready School. The feed has two pillars:
+${pillars.map(pillarDescription).join('\n')}
 
 Recently covered topics (avoid repeating these angles):
 ${coveredTopics}
 
-Generate exactly 5 fresh, specific Twitter search queries scoped to K-12 AI education that will surface NEW signals not covered above.
+Generate exactly 5 fresh, specific Twitter search queries that will surface NEW signals not covered above${pillars.length > 1 ? ', spread across both pillars' : ` for the ${scope} pillar`}.
 Output only the queries, one per line, no numbering or punctuation prefix.`,
       },
     ],
@@ -49,7 +63,16 @@ Output only the queries, one per line, no numbering or punctuation prefix.`,
     .slice(0, 5)
 
   // Always prepend breaking-news queries so trending AI stories are never missed
-  return [...BREAKING_NEWS_QUERIES, ...(topicQueries.length >= 3 ? topicQueries : FALLBACK_QUERIES.slice(2))]
+  const fallback = interleave(pillars.map((p) => FALLBACK_QUERIES[p])).slice(0, 5)
+  return [...BREAKING_NEWS_QUERIES, ...(topicQueries.length >= 3 ? topicQueries : fallback)]
+}
+
+// [[a1,a2],[b1,b2]] -> [a1,b1,a2,b2]
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = []
+  const max = Math.max(...lists.map((l) => l.length))
+  for (let i = 0; i < max; i++) for (const l of lists) if (i < l.length) out.push(l[i])
+  return out
 }
 
 export type TwitterSource = {
@@ -60,11 +83,14 @@ export type TwitterSource = {
   query: string
 }
 
-// Keyword gate used to check tracked-handle tweets against the K-12 focus —
+// Keyword gate used to check tracked-handle tweets against the two pillars —
 // handles aren't scoped to a query like search results are, so an explicit
 // relevance check keeps off-topic posts from a trusted account out of the report.
 const RELEVANCE_KEYWORDS = [
-  // K-12 education
+  // AI Education: literacy, engineering, physical AI, hardware
+  'ai literacy', 'ai engineering', 'physical ai', 'robot', 'humanoid', 'embodied', 'gpu', 'chip',
+  'accelerator', 'on-device', 'open-weight', 'prompt engineering', 'coding assistant',
+  // Education with AI / K-12 education
   'k-12', 'k12', 'school', 'student', 'teacher', 'classroom', 'edtech', 'ai tutor',
   'personalized learning', 'curriculum', 'ai literacy', 'education ai', 'assessment',
   'coppa', 'ferpa', 'computational thinking', 'certification', 'internship',
@@ -125,7 +151,7 @@ async function fetchTrackedHandleTweets(
 }
 
 export async function fetchRecentTweets(
-  queries: string[] = FALLBACK_QUERIES,
+  queries: string[] = [...BREAKING_NEWS_QUERIES, ...interleave(PILLARS.map((p) => FALLBACK_QUERIES[p])).slice(0, 5)],
   trackedHandles: string[] = []
 ): Promise<{ text: string; sources: TwitterSource[] }> {
   const client = new TwitterApi(process.env.TWITTER_BEARER_TOKEN!)

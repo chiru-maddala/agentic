@@ -1,26 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { SCOPE_BADGE, SCOPE_LABELS, isReportScope, type ReportScope } from '@/lib/pillars'
 
 type ReportMeta = {
   id: string
   date: string
   created_at: string
+  vertical?: string
 }
 
 type Props = {
   selectedId: string | null
   onSelect: (id: string, date: string, created_at: string) => void
+  filterScope?: ReportScope | 'any'
 }
 
-export default function ReportHistory({ selectedId, onSelect }: Props) {
+export default function ReportHistory({ selectedId, onSelect, filterScope = 'any' }: Props) {
   const [reports, setReports] = useState<ReportMeta[]>([])
 
   useEffect(() => {
-    fetch('/api/reports')
+    const qs = filterScope === 'any' ? '' : `?vertical=${encodeURIComponent(filterScope)}`
+    fetch(`/api/reports${qs}`)
       .then((r) => r.json())
-      .then(setReports)
-  }, [])
+      .then((data) => setReports(Array.isArray(data) ? data : []))
+  }, [filterScope])
 
   if (reports.length === 0) {
     return (
@@ -55,6 +59,11 @@ export default function ReportHistory({ selectedId, onSelect }: Props) {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="font-medium truncate">{datePart}</div>
+                {isReportScope(r.vertical) && (
+                  <span className={`flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SCOPE_BADGE[r.vertical]}`}>
+                    {SCOPE_LABELS[r.vertical]}
+                  </span>
+                )}
               </div>
               <div className={`text-xs mt-0.5 ${selectedId === r.id ? 'text-[#6B6B6B]' : 'text-[#9CA3AF]'}`}>
                 {timePart}

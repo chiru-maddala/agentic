@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { PILLARS, PILLAR_META, isPillar, type Pillar } from '@/lib/pillars'
 
 type TrackedHandle = {
   id: string
   handle: string
+  pillar: string | null
   active: boolean
   created_at: string
 }
@@ -13,6 +15,7 @@ export default function SourcesSection() {
   const [handles, setHandles] = useState<TrackedHandle[]>([])
   const [loading, setLoading] = useState(true)
   const [newHandle, setNewHandle] = useState('')
+  const [newPillar, setNewPillar] = useState<Pillar | ''>('')
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,7 +40,7 @@ export default function SourcesSection() {
       const res = await fetch('/api/tracked-handles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle }),
+        body: JSON.stringify({ handle, pillar: newPillar || null }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -78,7 +81,7 @@ export default function SourcesSection() {
         <div>
           <h1 className="text-xl font-semibold text-[#1A1A1A]">Sources</h1>
           <p className="text-sm text-[#9CA3AF] mt-1">
-            Known Twitter/X handles checked first for relevant, recent tweets before the daily report falls back to keyword search.
+            Known Twitter/X handles checked first for relevant, recent tweets before the daily report falls back to keyword search. A handle assigned to a pillar is only used for reports on that pillar.
           </p>
         </div>
 
@@ -91,6 +94,15 @@ export default function SourcesSection() {
               placeholder="handle (e.g. sama)"
               className="flex-1 text-sm px-3 py-2 rounded-lg border border-[#E3E0D8] bg-[#FAF9F6] focus:outline-none focus:bg-white transition-colors"
             />
+            <select
+              value={newPillar}
+              onChange={(e) => setNewPillar(e.target.value as Pillar | '')}
+              aria-label="Pillar"
+              className="flex-shrink-0 text-sm px-2.5 py-2 rounded-lg border border-[#E3E0D8] bg-[#FAF9F6]"
+            >
+              <option value="">Both pillars</option>
+              {PILLARS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
             <button
               onClick={addHandle}
               disabled={adding || !newHandle.trim()}
@@ -117,6 +129,9 @@ export default function SourcesSection() {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`text-sm text-[#1A1A1A] ${h.active ? '' : 'opacity-40'}`}>@{h.handle}</span>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isPillar(h.pillar) ? PILLAR_META[h.pillar].badge : 'bg-[#F3F1EC] text-[#6B6B6B]'}`}>
+                        {isPillar(h.pillar) ? h.pillar : 'Both pillars'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <button

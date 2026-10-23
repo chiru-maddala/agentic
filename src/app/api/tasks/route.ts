@@ -1,5 +1,6 @@
 import { getSupabase } from '@/lib/supabase'
 import { categoryForType } from '@/lib/signals'
+import { isPillar } from '@/lib/pillars'
 
 export async function GET() {
   const supabase = getSupabase()
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
     .insert({
       title: body.title,
       description: body.description ?? null,
-      pillar: body.pillar ?? 'General',
+      pillar: isPillar(body.pillar) ? body.pillar : 'General',
       status: body.status ?? 'todo',
       source: body.source ?? 'manual',
       report_id: body.report_id ?? null,
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     type: 'task_created',
     category: categoryForType('task_created'),
     content: `Created task: "${data.title}"`,
+    pillar: isPillar(data.pillar) ? data.pillar : null,
     metadata: { task_id: data.id, source: data.source },
   })).catch(() => {})
 
