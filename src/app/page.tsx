@@ -10,6 +10,7 @@ const ReportDisplay = dynamic(() => import('@/components/ReportDisplay'), { ssr:
 const ChatSection = dynamic(() => import('@/components/ChatSection'), { ssr: false })
 const TasksSection = dynamic(() => import('@/components/TasksSection'), { ssr: false })
 const NotesSection = dynamic(() => import('@/components/NotesSection'), { ssr: false })
+const WhiteboardSection = dynamic(() => import('@/components/WhiteboardSection'), { ssr: false })
 const DashboardSection = dynamic(() => import('@/components/DashboardSection'), { ssr: false })
 const MirrorSection = dynamic(() => import('@/components/MirrorSection'), { ssr: false })
 const ContextSection = dynamic(() => import('@/components/ContextSection'), { ssr: false })
@@ -22,7 +23,7 @@ const GoalsSection = dynamic(() => import('@/components/GoalsSection'), { ssr: f
 import { createClient } from '@/lib/supabase-browser'
 import { REPORT_SCOPES, SCOPE_BADGE, SCOPE_LABELS, isReportScope, type ReportScope } from '@/lib/pillars'
 
-type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'dashboard' | 'research' | 'mirror' | 'goals'
+type Tab = 'reports' | 'chat' | 'tasks' | 'notes' | 'whiteboard' | 'dashboard' | 'research' | 'mirror' | 'goals'
 type SettingsTab = 'context' | 'sources' | 'users'
 
 const TAB_ICONS: Record<Tab, React.ReactNode> = {
@@ -44,6 +45,11 @@ const TAB_ICONS: Record<Tab, React.ReactNode> = {
   notes: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  whiteboard: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M7 13l3-3 2 2 4-4"/><line x1="12" y1="16" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/>
     </svg>
   ),
   dashboard: (
@@ -77,6 +83,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'chat', label: 'Chat' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'notes', label: 'Notes' },
+  { id: 'whiteboard', label: 'Whiteboard' },
   { id: 'research', label: 'Research' },
 ]
 
@@ -562,6 +569,7 @@ export default function Home() {
         {tab === 'chat' && <ChatSection />}
         {tab === 'tasks' && <TasksSection />}
         {tab === 'notes' && <NotesSection />}
+        {tab === 'whiteboard' && <WhiteboardSection />}
         {tab === 'dashboard' && <DashboardSection onNavigate={handleTabChange} onGenerateReport={(scope) => generateReport(scope)} generating={generating} />}
         {tab === 'mirror' && <MirrorSection />}
         {tab === 'goals' && <GoalsSection />}
@@ -572,6 +580,7 @@ export default function Home() {
               tab === 'reports' ? `reports. ${selectedDate ? `Viewing report from ${selectedDate}.` : 'No report selected.'}${content ? ` Report content: ${content.slice(0, 600)}` : ''}`
               : tab === 'tasks' ? 'tasks. Viewing the Tasks section with all open and completed tasks.'
               : tab === 'notes' ? 'notes. Viewing the Notes section with saved notes.'
+              : tab === 'whiteboard' ? 'whiteboard. Viewing the Whiteboard section with saved drawing boards.'
               : tab === 'mirror' ? 'mirror. Viewing the Strategic Mirror — signals, thoughts, and coaching assessment.'
               : tab === 'goals' ? 'goals. Viewing Goals — measurable K-12 goals, their plans, and everything aligned to them.'
               : tab === 'research' ? researchContext
