@@ -176,6 +176,12 @@ export function hitTest(s: Shape, px: number, py: number, tol: number): boolean 
   return Math.abs(radial - 1) * Math.min(rx, ry) <= reach
 }
 
+export function translateShape(s: Shape, dx: number, dy: number): Shape {
+  if (s.t === 'pen') return { ...s, pts: s.pts.map((v, i) => v + (i % 2 === 0 ? dx : dy)) }
+  if (s.t === 'text') return { ...s, x: s.x + dx, y: s.y + dy }
+  return { ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy }
+}
+
 export function shapesBounds(shapes: Shape[]) {
   if (shapes.length === 0) return null
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity

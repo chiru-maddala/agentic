@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   COLORS, WIDTHS, FONT,
-  drawShape, hitTest, newId, parseShapes, makeThumbnail, exportPng,
+  drawShape, hitTest, newId, parseShapes, makeThumbnail, exportPng, translateShape, shapesBounds,
   type Shape, type View,
 } from '@/lib/whiteboard'
 
 type BoardMeta = { id: string; title: string; thumbnail: string | null; updated_at: string }
 type Board = BoardMeta & { data: unknown }
-type Tool = 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'pan'
+type Tool = 'select' | 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'pan'
 type SaveState = 'saved' | 'saving' | 'error'
 
 const MIN_K = 0.1
@@ -22,6 +22,7 @@ const ic = (children: React.ReactNode) => (
 )
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode }[] = [
+  { id: 'select', label: 'Select & move (drag empty space to pan)', icon: ic(<path d="m4 4 7.07 17 2.51-7.39L21 11.07z"/>) },
   { id: 'pan', label: 'Pan (hold Space)', icon: ic(<><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3.2-2.4L8 15"/></>) },
   { id: 'pen', label: 'Pen', icon: ic(<><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></>) },
   { id: 'highlighter', label: 'Highlighter', icon: ic(<><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></>) },
@@ -34,7 +35,7 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode }[] = [
 ]
 
 const CURSORS: Record<Tool, string> = {
-  pan: 'grab', pen: 'crosshair', highlighter: 'crosshair', eraser: 'cell',
+  select: 'default', pan: 'grab', pen: 'crosshair', highlighter: 'crosshair', eraser: 'cell',
   line: 'crosshair', arrow: 'crosshair', rect: 'crosshair', ellipse: 'crosshair', text: 'text',
 }
 
@@ -63,8 +64,11 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   const draftRef = useRef<Shape | null>(null)
   const erasedRef = useRef<Set<string>>(new Set())
   const viewRef = useRef<View>({ x: 0, y: 0, k: 1 })
-  const dragRef = useRef<null | { mode: 'draw' | 'erase' | 'pan' | 'text'; sx: number; sy: number; vx: number; vy: number }>(null)
+  const dragRef = useRef<null | { mode: 'draw' | 'erase' | 'pan' | 'text' | 'move'; sx: number; sy: number; vx: number; vy: number }>(null)
   const spaceRef = useRef(false)
+  const selectedRef = useRef<string | null>(null)
+  const moveRef = useRef<null | { id: string; ox: number; oy: number; dx: number; dy: number }>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef(0)
 
   const [tool, setTool] = useState<Tool>('pen')
@@ -73,6 +77,7 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   const [title, setTitle] = useState(board.title)
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [zoom, setZoom] = useState(1)
+  const [isFull, setIsFull] = useState(false)
   const [hist, setHist] = useState({ undo: false, redo: false, empty: parseShapes(board.data).length === 0 })
   const syncHist = useCallback(() => setHist({
     undo: pastRef.current.length > 0,
@@ -125,8 +130,27 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
 
     ctx.setTransform(dpr * v.k, 0, 0, dpr * v.k, dpr * v.x, dpr * v.y)
     const erased = erasedRef.current
-    for (const s of shapesRef.current) if (!erased.has(s.id)) drawShape(ctx, s)
+    const mv = moveRef.current
+    let selected: Shape | null = null
+    for (const s of shapesRef.current) {
+      if (erased.has(s.id)) continue
+      const shown = mv && mv.id === s.id ? translateShape(s, mv.dx, mv.dy) : s
+      drawShape(ctx, shown)
+      if (s.id === selectedRef.current) selected = shown
+    }
     if (draftRef.current) drawShape(ctx, draftRef.current)
+    if (selected) {
+      const b = shapesBounds([selected])
+      if (b) {
+        const pad = 6 / v.k
+        ctx.save()
+        ctx.strokeStyle = '#D4622A'
+        ctx.lineWidth = 1.5 / v.k
+        ctx.setLineDash([5 / v.k, 4 / v.k])
+        ctx.strokeRect(b.minX - pad, b.minY - pad, b.maxX - b.minX + pad * 2, b.maxY - b.minY + pad * 2)
+        ctx.restore()
+      }
+    }
   }, [])
 
   const requestDraw = useCallback(() => {
@@ -280,6 +304,14 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
         if (e.shiftKey) redo(); else undo()
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault(); redo()
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedRef.current) {
+        e.preventDefault()
+        const id = selectedRef.current
+        selectedRef.current = null
+        commit(shapesRef.current.filter((s) => s.id !== id))
+      } else if (e.key === 'Escape' && selectedRef.current) {
+        selectedRef.current = null
+        requestDraw()
       } else if (e.code === 'Space' && !e.repeat) {
         e.preventDefault(); spaceRef.current = true
         if (canvasRef.current) canvasRef.current.style.cursor = 'grab'
@@ -294,7 +326,7 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [undo, redo])
+  }, [undo, redo, commit, requestDraw])
 
   // ---------- text ----------
   const finishText = useCallback((commitIt: boolean) => {
@@ -345,6 +377,25 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
       e.currentTarget.style.cursor = 'grabbing'
       return
     }
+    if (t === 'select') {
+      const tol = 8 / v.k
+      let hit: Shape | null = null
+      for (let i = shapesRef.current.length - 1; i >= 0; i--) {
+        if (hitTest(shapesRef.current[i], p.x, p.y, tol)) { hit = shapesRef.current[i]; break }
+      }
+      selectedRef.current = hit ? hit.id : null
+      if (hit) {
+        moveRef.current = { id: hit.id, ox: p.x, oy: p.y, dx: 0, dy: 0 }
+        dragRef.current = { mode: 'move', sx: p.sx, sy: p.sy, vx: 0, vy: 0 }
+        e.currentTarget.style.cursor = 'move'
+      } else {
+        // empty space: drag to pan the board
+        dragRef.current = { mode: 'pan', sx: p.sx, sy: p.sy, vx: v.x, vy: v.y }
+        e.currentTarget.style.cursor = 'grabbing'
+      }
+      requestDraw()
+      return
+    }
     if (t === 'text') {
       // The editor opens on pointer-up: focusing it now would be undone by the
       // browser's own mousedown focus handling. Any open editor blurs (commits) first.
@@ -371,7 +422,10 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
     const d = dragRef.current
     if (!d) return
     const p = toWorld(e)
-    if (d.mode === 'pan') {
+    if (d.mode === 'move') {
+      const m = moveRef.current
+      if (m) { m.dx = p.x - m.ox; m.dy = p.y - m.oy; requestDraw() }
+    } else if (d.mode === 'pan') {
       setView({ ...viewRef.current, x: d.vx + (p.sx - d.sx), y: d.vy + (p.sy - d.sy) })
     } else if (d.mode === 'erase') {
       eraseAt(p.x, p.y)
@@ -397,6 +451,13 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
       const v = viewRef.current
       textDoneRef.current = false
       updateText({ wx: (d.sx - v.x) / v.k, wy: (d.sy - v.y) / v.k, sx: d.sx, sy: d.sy, value: '' })
+    } else if (d.mode === 'move') {
+      const m = moveRef.current
+      moveRef.current = null
+      e.currentTarget.style.cursor = CURSORS[toolRef.current]
+      if (m && Math.hypot(m.dx, m.dy) * viewRef.current.k >= 2) {
+        commit(shapesRef.current.map((s) => (s.id === m.id ? translateShape(s, m.dx, m.dy) : s)))
+      } else requestDraw()
     } else if (d.mode === 'pan') {
       e.currentTarget.style.cursor = spaceRef.current ? 'grab' : CURSORS[toolRef.current]
     } else if (d.mode === 'erase') {
@@ -417,6 +478,41 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   }
 
   // ---------- actions ----------
+  const chooseTool = (t: Tool) => {
+    setTool(t)
+    if (t !== 'select' && selectedRef.current) { selectedRef.current = null; requestDraw() }
+  }
+
+  // ---------- full screen ----------
+  const enterFull = () => {
+    setIsFull(true)
+    // Real fullscreen where supported; otherwise the fixed overlay below still covers the app.
+    rootRef.current?.requestFullscreen?.().catch(() => {})
+  }
+  const exitFull = useCallback(() => {
+    setIsFull(false)
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const onChange = () => { if (!document.fullscreenElement) setIsFull(false) }
+    document.addEventListener('fullscreenchange', onChange)
+    const root = rootRef.current
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      if (document.fullscreenElement && document.fullscreenElement === root) void document.exitFullscreen().catch(() => {})
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isFull) return
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
+      if (e.key === 'Escape' && !(el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT'))) exitFull()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isFull, exitFull])
   const clearBoard = () => {
     if (shapesRef.current.length === 0) return
     if (!window.confirm('Clear everything on this board? You can undo this.')) return
@@ -447,9 +543,9 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   const sep = <div className="w-px h-5 bg-[#E3E0D8] mx-1 flex-shrink-0" />
 
   return (
-    <div className="flex flex-col h-full min-w-0">
+    <div ref={rootRef} className={isFull ? 'fixed inset-0 z-[100] flex flex-col bg-white' : 'flex flex-col h-full min-w-0'}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 md:px-4 py-2 border-b border-[#E3E0D8] bg-white">
+      <div className={`${isFull ? 'hidden' : 'flex'} items-center gap-2 px-3 md:px-4 py-2 border-b border-[#E3E0D8] bg-white`}>
         <button
           onClick={goBack}
           className="flex items-center gap-1 text-sm text-[#6B6B6B] hover:text-[#1A1A1A] pr-1 flex-shrink-0"
@@ -476,11 +572,17 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-1 px-3 md:px-4 py-1.5 border-b border-[#E3E0D8] bg-white overflow-x-auto">
+      <div
+        className={
+          isFull
+            ? 'absolute top-3 left-1/2 -translate-x-1/2 z-10 max-w-[calc(100%-1.5rem)] flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#E3E0D8] bg-white shadow-lg overflow-x-auto opacity-30 hover:opacity-100 focus-within:opacity-100 transition-opacity'
+            : 'flex items-center gap-1 px-3 md:px-4 py-1.5 border-b border-[#E3E0D8] bg-white overflow-x-auto'
+        }
+      >
         {TOOLS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTool(t.id)}
+            onClick={() => chooseTool(t.id)}
             title={t.label}
             aria-label={t.label}
             aria-pressed={tool === t.id}
@@ -530,6 +632,12 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
           {Math.round(zoom * 100)}%
         </button>
         <IconBtn onClick={() => zoomCenter(1.25)} label="Zoom in">{ic(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></>)}</IconBtn>
+        {sep}
+        <IconBtn onClick={isFull ? exitFull : enterFull} label={isFull ? 'Exit full screen (Esc)' : 'Full screen'}>
+          {isFull
+            ? ic(<><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></>)
+            : ic(<><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></>)}
+        </IconBtn>
       </div>
 
       {/* Canvas */}
@@ -569,8 +677,8 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
             } as React.CSSProperties}
           />
         )}
-        <div className="absolute left-3 bottom-3 text-[11px] text-[#9CA3AF] bg-white/80 rounded px-2 py-1 pointer-events-none hidden md:block">
-          Scroll to pan · ⌘/Ctrl + scroll to zoom · hold Space to drag
+        <div className={`absolute left-3 bottom-3 text-[11px] text-[#9CA3AF] bg-white/80 rounded px-2 py-1 pointer-events-none ${isFull ? 'hidden' : 'hidden md:block'}`}>
+          Scroll to pan · ⌘/Ctrl + scroll to zoom · hold Space to drag · Select tool moves shapes
         </div>
       </div>
     </div>
