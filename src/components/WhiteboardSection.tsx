@@ -23,16 +23,19 @@ const ic = (children: React.ReactNode) => (
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode }[] = [
   { id: 'select', label: 'Select & move (drag empty space to pan)', icon: ic(<path d="m4 4 7.07 17 2.51-7.39L21 11.07z"/>) },
-  { id: 'pan', label: 'Pan (hold Space)', icon: ic(<><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3.2-2.4L8 15"/></>) },
-  { id: 'pen', label: 'Pen', icon: ic(<><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></>) },
+  { id: 'pan', label: 'Hand / move canvas (H, or hold Space)', icon: ic(<><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3.2-2.4L8 15"/></>) },
+  { id: 'pen', label: 'Pen / write (W)', icon: ic(<><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></>) },
   { id: 'highlighter', label: 'Highlighter', icon: ic(<><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></>) },
-  { id: 'eraser', label: 'Eraser (removes whole strokes)', icon: ic(<><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></>) },
+  { id: 'eraser', label: 'Eraser (E) — removes whole strokes', icon: ic(<><path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l9.6-9.6a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></>) },
   { id: 'line', label: 'Line', icon: ic(<line x1="5" y1="19" x2="19" y2="5"/>) },
   { id: 'arrow', label: 'Arrow', icon: ic(<><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></>) },
   { id: 'rect', label: 'Rectangle', icon: ic(<rect x="3" y="5" width="18" height="14" rx="1"/>) },
   { id: 'ellipse', label: 'Ellipse', icon: ic(<ellipse cx="12" cy="12" rx="9" ry="7"/>) },
   { id: 'text', label: 'Text', icon: ic(<><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></>) },
 ]
+
+// Single-key tool shortcuts (no modifiers, ignored while typing).
+const TOOL_SHORTCUTS: Record<string, Tool> = { h: 'pan', w: 'pen', e: 'eraser' }
 
 const CURSORS: Record<Tool, string> = {
   select: 'default', pan: 'grab', pen: 'crosshair', highlighter: 'crosshair', eraser: 'cell',
@@ -478,10 +481,24 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   }
 
   // ---------- actions ----------
-  const chooseTool = (t: Tool) => {
+  const chooseTool = useCallback((t: Tool) => {
     setTool(t)
     if (t !== 'select' && selectedRef.current) { selectedRef.current = null; requestDraw() }
-  }
+  }, [requestDraw])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      const t = TOOL_SHORTCUTS[e.key.toLowerCase()]
+      if (!t) return
+      e.preventDefault()
+      chooseTool(t)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [chooseTool])
 
   // ---------- full screen ----------
   const enterFull = () => {
@@ -678,7 +695,7 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
           />
         )}
         <div className={`absolute left-3 bottom-3 text-[11px] text-[#9CA3AF] bg-white/80 rounded px-2 py-1 pointer-events-none ${isFull ? 'hidden' : 'hidden md:block'}`}>
-          Scroll to pan · ⌘/Ctrl + scroll to zoom · hold Space to drag · Select tool moves shapes
+          Scroll to pan · ⌘/Ctrl + scroll to zoom · hold Space to drag · H hand · W write · E erase
         </div>
       </div>
     </div>
