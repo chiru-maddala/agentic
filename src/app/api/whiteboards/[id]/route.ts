@@ -8,7 +8,7 @@ export async function GET(
   const { id } = await ctx.params
   const { data, error } = await supabase
     .from('whiteboards')
-    .select('id, title, data, thumbnail, created_at, updated_at')
+    .select('id, title, data, thumbnail, is_public, created_at, updated_at')
     .eq('id', id)
     .single()
   if (error) return Response.json({ error: error.message }, { status: 404 })
@@ -27,6 +27,7 @@ export async function PUT(
   if (typeof body.title === 'string') update.title = body.title.trim() || 'Untitled board'
   if (body.data !== undefined) update.data = body.data
   if (body.thumbnail !== undefined) update.thumbnail = body.thumbnail
+  if (typeof body.is_public === 'boolean') update.is_public = body.is_public
 
   const { error } = await supabase.from('whiteboards').update(update).eq('id', id)
   if (error) return Response.json({ error: error.message }, { status: 500 })
