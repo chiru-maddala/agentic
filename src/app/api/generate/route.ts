@@ -4,7 +4,7 @@ import { generateSearchQueries, fetchRecentTweets, type TwitterSource } from '@/
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/prompt'
 import { categoryForType } from '@/lib/signals'
 import { stripLoneSurrogates } from '@/lib/text'
-import { PILLAR_META, PILLARS, isPillar, parseReportScope, pillarsForScope, type Pillar, type ReportScope } from '@/lib/pillars'
+import { PILLAR_META, isPillar, parseReportScope, pillarsForScope, type Pillar, type ReportScope } from '@/lib/pillars'
 
 export const maxDuration = 300
 
@@ -132,17 +132,6 @@ async function extractAndInsertSignals(
   }
 }
 
-// Priority Actions in a combined report are prefixed "[AI Education]" or
-// "[Education with AI]"; a single-pillar report's actions all belong to that pillar.
-function parseActionPillar(line: string, scope: ReportScope): { title: string; pillar: Pillar | 'General' } {
-  const text = line.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '').trim()
-  const tagged = text.match(/^\[([^\]]+)\]\s*/)
-  if (tagged && PILLARS.includes(tagged[1] as Pillar)) {
-    return { title: text.slice(tagged[0].length).slice(0, 200), pillar: tagged[1] as Pillar }
-  }
-  return { title: text.slice(0, 200), pillar: scope === 'All' ? 'General' : scope }
-}
-
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -204,22 +193,10 @@ export async function POST(req: Request) {
             .select()
             .single()
 
-          // Auto-extract tasks from Priority Actions section
+          // Reports no longer create tasks automatically; tasks are added by the user.
           if (report) {
             // Auto-signal capture: extract per-section insights and inject into mirror_signals
             void extractAndInsertSignals(fullContent, report.id, today, scope).catch(() => {})
-            const actionsMatch = fullContent.match(/Priority Actions[^]*?(?=\n#{1,3} |$)/i)
-            if (actionsMatch) {
-              const lines = actionsMatch[0].split('\n').filter((l) => /^[-*•]\s/.test(l.trim()))
-              const taskInserts = lines.slice(0, 10).map((line) => {
-                const { title, pillar } = parseActionPillar(line, scope)
-                return { title, pillar, source: 'report', report_id: report.id }
-              })
-              if (taskInserts.length > 0) {
-                await supabase.from('tasks').insert(taskInserts)
-              }
-            }
-
           }
         }
       } catch (err) {
