@@ -7,7 +7,7 @@ import {
   type Shape, type View,
 } from '@/lib/whiteboard'
 
-type BoardMeta = { id: string; title: string; thumbnail: string | null; updated_at: string }
+type BoardMeta = { id: string; title: string; thumbnail: string | null; is_public?: boolean; updated_at: string }
 type Board = BoardMeta & { data: unknown }
 type Tool = 'select' | 'pen' | 'highlighter' | 'eraser' | 'line' | 'arrow' | 'rect' | 'ellipse' | 'text' | 'pan'
 type SaveState = 'saved' | 'saving' | 'error'
@@ -81,6 +81,11 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [zoom, setZoom] = useState(1)
   const [isFull, setIsFull] = useState(false)
+  const [isPublic, setIsPublic] = useState(!!board.is_public)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [hist, setHist] = useState({ undo: false, redo: false, empty: parseShapes(board.data).length === 0 })
   const syncHist = useCallback(() => setHist({
     undo: pastRef.current.length > 0,
@@ -545,6 +550,38 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
     a.click()
   }
 
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/share/whiteboard/${board.id}` : ''
+
+  const setSharing = async (on: boolean) => {
+    setShareBusy(true)
+    setShareError(null)
+    try {
+      const res = await fetch(`/api/whiteboards/${board.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_public: on }),
+      })
+      if (!res.ok) throw new Error()
+      // Make sure the shared copy has the latest drawing, not just the last autosave.
+      await flush()
+      setIsPublic(on)
+    } catch {
+      setShareError('Could not update sharing. Please try again.')
+    } finally {
+      setShareBusy(false)
+    }
+  }
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setShareError('Copy failed — select the link and copy it manually.')
+    }
+  }
+
   const goBack = async () => { await flush(); onBack() }
 
   const deleteBoard = async () => {
@@ -580,6 +617,49 @@ function BoardEditor({ board, onBack, onDeleted }: { board: Board; onBack: () =>
         <span className={`text-xs flex-shrink-0 ${saveState === 'error' ? 'text-red-600' : 'text-[#9CA3AF]'}`} role="status">
           {saveState === 'saved' ? 'Saved' : saveState === 'saving' ? 'Saving…' : 'Save failed — retrying on next edit'}
         </span>
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={() => { setShareOpen((o) => !o); setShareError(null) }}
+            aria-expanded={shareOpen}
+            className={`text-xs px-2 py-1 rounded border transition-colors ${
+              isPublic ? 'text-green-700 bg-green-50 border-green-200' : 'text-[#6B6B6B] bg-[#F5F3EE] border-[#E3E0D8] hover:text-[#1A1A1A]'
+            }`}
+          >
+            {isPublic ? 'Shared' : 'Share'}
+          </button>
+          {shareOpen && (
+            <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 z-30 bg-white border border-[#E3E0D8] rounded-xl shadow-lg p-3 space-y-2.5">
+              {isPublic ? (
+                <>
+                  <p className="text-xs text-[#6B6B6B]">Anyone with this link can <b>view</b> this board (read-only). It updates as you edit.</p>
+                  <div className="flex gap-1.5">
+                    <input
+                      readOnly
+                      value={shareUrl}
+                      onFocus={(e) => e.currentTarget.select()}
+                      aria-label="Public link"
+                      className="flex-1 min-w-0 text-xs border border-[#E3E0D8] rounded-md px-2 py-1.5 bg-[#FAF9F6] text-[#374151]"
+                    />
+                    <button onClick={copyShareLink} className="text-xs bg-[#D4622A] hover:bg-[#C05520] text-white rounded-md px-3 py-1.5 flex-shrink-0">
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <button onClick={() => setSharing(false)} disabled={shareBusy} className="text-xs text-red-600 hover:underline disabled:opacity-50">
+                    Stop sharing
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-[#6B6B6B]">Create a public link. Anyone who has it can view this board without signing in, but can&apos;t edit it.</p>
+                  <button onClick={() => setSharing(true)} disabled={shareBusy} className="w-full text-xs bg-[#D4622A] hover:bg-[#C05520] disabled:opacity-60 text-white rounded-md py-1.5">
+                    {shareBusy ? 'Creating link…' : 'Create public link'}
+                  </button>
+                </>
+              )}
+              {shareError && <p className="text-xs text-red-600">{shareError}</p>}
+            </div>
+          )}
+        </div>
         <button onClick={downloadPng} className="text-xs text-[#6B6B6B] bg-[#F5F3EE] border border-[#E3E0D8] hover:text-[#1A1A1A] px-2 py-1 rounded flex-shrink-0">
           Export PNG
         </button>
@@ -840,7 +920,12 @@ export default function WhiteboardSection() {
                     )}
                   </div>
                   <div className="px-3 py-2.5 pr-10">
-                    <div className="truncate text-sm font-medium text-[#1A1A1A]">{b.title}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-[#1A1A1A]">{b.title}</span>
+                      {b.is_public && (
+                        <span className="flex-shrink-0 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-full px-1.5 py-px">Shared</span>
+                      )}
+                    </div>
                     <div className="text-xs text-[#9CA3AF] mt-0.5">
                       Edited {new Date(b.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
